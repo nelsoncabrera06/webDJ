@@ -36,6 +36,9 @@ class DJMixApp {
         // Setup master BPM display
         this.setupMasterBPM();
 
+        // Setup settings
+        this.setupSettings();
+
         this.isInitialized = true;
         console.log('DJ Mix Web initialized');
     }
@@ -44,17 +47,30 @@ class DJMixApp {
      * Initialize audio context (requires user interaction)
      */
     async initAudioContext() {
+        const startOverlay = document.getElementById('startOverlay');
+
         return new Promise((resolve) => {
             const initHandler = async () => {
                 await this.audioEngine.init();
                 document.removeEventListener('click', initHandler);
                 document.removeEventListener('keydown', initHandler);
+                // Hide the start overlay
+                if (startOverlay) {
+                    startOverlay.classList.add('hidden');
+                    setTimeout(() => startOverlay.remove(), 300);
+                }
                 resolve();
             };
 
             // Try to init immediately (might work if called from user event)
             if (document.readyState === 'complete') {
-                this.audioEngine.init().then(resolve).catch(() => {
+                this.audioEngine.init().then(() => {
+                    if (startOverlay) {
+                        startOverlay.classList.add('hidden');
+                        setTimeout(() => startOverlay.remove(), 300);
+                    }
+                    resolve();
+                }).catch(() => {
                     // If failed, wait for user interaction
                     document.addEventListener('click', initHandler, { once: true });
                     document.addEventListener('keydown', initHandler, { once: true });
@@ -279,6 +295,69 @@ class DJMixApp {
         this.audioEngine.on('tempoChange', updateMasterBPM);
         this.audioEngine.on('play', updateMasterBPM);
         this.audioEngine.on('stop', updateMasterBPM);
+    }
+
+    /**
+     * Setup settings modal and controls
+     */
+    setupSettings() {
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeSettings = document.getElementById('closeSettings');
+        const pitchModeSelect = document.getElementById('pitchMode');
+
+        // Load saved settings
+        const savedPitchMode = localStorage.getItem('pitchMode') || 'linked';
+        pitchModeSelect.value = savedPitchMode;
+        this.applyPitchMode(savedPitchMode);
+
+        // Open modal
+        settingsBtn.addEventListener('click', () => {
+            settingsModal.classList.add('open');
+        });
+
+        // Close modal
+        closeSettings.addEventListener('click', () => {
+            settingsModal.classList.remove('open');
+        });
+
+        // Close on backdrop click
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                settingsModal.classList.remove('open');
+            }
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && settingsModal.classList.contains('open')) {
+                settingsModal.classList.remove('open');
+            }
+        });
+
+        // Pitch mode change
+        pitchModeSelect.addEventListener('change', (e) => {
+            const mode = e.target.value;
+            localStorage.setItem('pitchMode', mode);
+            this.applyPitchMode(mode);
+        });
+    }
+
+    /**
+     * Apply pitch mode setting
+     */
+    applyPitchMode(mode) {
+        if (mode === 'independent') {
+            document.body.classList.add('pitch-independent');
+            // Independent mode: tempo affects pitch (like vinyl)
+            this.audioEngine.setPreservesPitch('A', false);
+            this.audioEngine.setPreservesPitch('B', false);
+        } else {
+            document.body.classList.remove('pitch-independent');
+            // Linked mode: tempo doesn't affect pitch (time-stretching)
+            this.audioEngine.setPreservesPitch('A', true);
+            this.audioEngine.setPreservesPitch('B', true);
+        }
     }
 }
 

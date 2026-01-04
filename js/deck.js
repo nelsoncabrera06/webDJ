@@ -142,12 +142,11 @@ class DeckController {
             this.resetTempo();
         });
 
-        // Pitch slider (note: Web Audio API doesn't easily support independent pitch)
+        // Pitch slider - uses detune to shift pitch in semitones
         this.elements.pitchSlider.addEventListener('input', (e) => {
             const pitch = parseFloat(e.target.value);
             this.elements.pitchValue.textContent = `${pitch > 0 ? '+' : ''}${pitch.toFixed(1)} st`;
-            // Pitch shifting requires more complex implementation
-            // For now, this is a placeholder
+            this.audioEngine.setPitch(this.deckId, pitch);
         });
 
         // Hot cues

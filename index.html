@@ -16,6 +16,9 @@
             <h1>DJ Mix Web</h1>
             <div class="header-controls">
                 <span id="masterBpm">Master: -- BPM</span>
+                <button class="settings-btn" id="settingsBtn" title="Settings">
+                    <span class="settings-icon">&#9881;</span>
+                </button>
             </div>
         </header>
 
@@ -70,7 +73,7 @@
                             </div>
                             <span class="control-value" id="tempoValueA">1.00x</span>
                         </div>
-                        <div class="control-group">
+                        <div class="control-group pitch-control">
                             <label>PITCH</label>
                             <input type="range" id="pitchA" class="vertical-slider" min="-12" max="12" step="0.1" value="0" orient="vertical">
                             <span class="control-value" id="pitchValueA">0 st</span>
@@ -219,7 +222,7 @@
                             </div>
                             <span class="control-value" id="tempoValueB">1.00x</span>
                         </div>
-                        <div class="control-group">
+                        <div class="control-group pitch-control">
                             <label>PITCH</label>
                             <input type="range" id="pitchB" class="vertical-slider" min="-12" max="12" step="0.1" value="0" orient="vertical">
                             <span class="control-value" id="pitchValueB">0 st</span>
@@ -260,6 +263,38 @@
         <footer class="app-footer">
             <span>DJ Mix Web - Built with Web Audio API</span>
         </footer>
+
+        <!-- Settings Modal -->
+        <div class="settings-modal" id="settingsModal">
+            <div class="settings-panel">
+                <div class="settings-header">
+                    <h2>Settings</h2>
+                    <button class="close-btn" id="closeSettings">&times;</button>
+                </div>
+                <div class="settings-content">
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <span class="setting-title">Pitch Mode</span>
+                            <span class="setting-desc">How tempo affects pitch</span>
+                        </div>
+                        <div class="setting-control">
+                            <select id="pitchMode">
+                                <option value="linked" selected>Linked (pitch stays constant)</option>
+                                <option value="independent">Independent (vinyl style)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Click to Start Overlay -->
+    <div class="start-overlay" id="startOverlay">
+        <div class="start-content">
+            <div class="start-icon">&#9654;</div>
+            <span class="start-text">Click to start</span>
+        </div>
     </div>
 
     <!-- Scripts -->
