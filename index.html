@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ Mix Web - Professional DJ Software</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/deck.css">
+    <link rel="stylesheet" href="css/mixer.css">
+    <link rel="stylesheet" href="css/waveform.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>DJ Mix Web</h1>
+            <div class="header-controls">
+                <span id="masterBpm">Master: -- BPM</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Zoomed Waveforms Display -->
+            <section class="waveforms-section">
+                <div class="zoomed-waveform-container">
+                    <canvas id="zoomedWaveformA" class="zoomed-waveform deck-a"></canvas>
+                    <canvas id="zoomedWaveformB" class="zoomed-waveform deck-b"></canvas>
+                    <div class="playhead-indicator"></div>
+                </div>
+            </section>
+
+            <!-- Decks and Mixer -->
+            <section class="decks-section">
+                <!-- Deck A -->
+                <div class="deck" id="deckA" data-deck="A">
+                    <div class="deck-header">
+                        <span class="deck-label">DECK A</span>
+                        <div class="track-info">
+                            <span class="track-name" id="trackNameA">No Track Loaded</span>
+                            <span class="track-bpm" id="trackBpmA">-- BPM</span>
+                        </div>
+                    </div>
+
+                    <!-- Mini Waveform -->
+                    <div class="mini-waveform-container">
+                        <canvas id="waveformA" class="mini-waveform"></canvas>
+                        <div class="waveform-time">
+                            <span id="currentTimeA">0:00</span>
+                            <span id="totalTimeA">0:00</span>
+                        </div>
+                    </div>
+
+                    <!-- Load Button / Drop Zone -->
+                    <div class="load-zone" id="loadZoneA">
+                        <input type="file" id="fileInputA" accept="audio/*" hidden>
+                        <button class="load-btn" onclick="document.getElementById('fileInputA').click()">
+                            Load Track
+                        </button>
+                        <span class="drop-hint">or drag & drop</span>
+                    </div>
+
+                    <!-- Tempo & Pitch Controls -->
+                    <div class="tempo-pitch-section">
+                        <div class="control-group">
+                            <label>TEMPO</label>
+                            <div class="slider-with-reset">
+                                <input type="range" id="tempoA" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
+                                <button class="reset-tempo-btn" id="resetTempoA" title="Reset tempo">&#9664;</button>
+                            </div>
+                            <span class="control-value" id="tempoValueA">1.00x</span>
+                        </div>
+                        <div class="control-group">
+                            <label>PITCH</label>
+                            <input type="range" id="pitchA" class="vertical-slider" min="-12" max="12" step="0.1" value="0" orient="vertical">
+                            <span class="control-value" id="pitchValueA">0 st</span>
+                        </div>
+                    </div>
+
+                    <!-- Transport Controls -->
+                    <div class="transport-controls">
+                        <button class="transport-btn play-btn" id="playA">
+                            <span class="icon">▶</span>
+                        </button>
+                        <button class="transport-btn pause-btn" id="pauseA">
+                            <span class="icon">⏸</span>
+                        </button>
+                        <button class="transport-btn stop-btn" id="stopA">
+                            <span class="icon">⏹</span>
+                        </button>
+                        <button class="transport-btn cue-btn" id="cueA">
+                            CUE
+                        </button>
+                        <button class="transport-btn sync-btn" id="syncA">
+                            SYNC
+                        </button>
+                    </div>
+
+                    <!-- Hot Cues -->
+                    <div class="hot-cues">
+                        <button class="hot-cue-btn" id="hotCueA1">1</button>
+                        <button class="hot-cue-btn" id="hotCueA2">2</button>
+                        <button class="hot-cue-btn" id="hotCueA3">3</button>
+                        <button class="hot-cue-btn" id="hotCueA4">4</button>
+                    </div>
+                </div>
+
+                <!-- Mixer -->
+                <div class="mixer" id="mixer">
+                    <div class="mixer-header">
+                        <span>MIXER</span>
+                    </div>
+
+                    <!-- EQ Section -->
+                    <div class="eq-section">
+                        <!-- Deck A EQ -->
+                        <div class="eq-column" id="eqA">
+                            <div class="eq-knob-container">
+                                <label>HI</label>
+                                <div class="knob" id="eqHighA" data-value="0" data-min="-12" data-max="12"></div>
+                                <span class="knob-value">0</span>
+                            </div>
+                            <div class="eq-knob-container">
+                                <label>MID</label>
+                                <div class="knob" id="eqMidA" data-value="0" data-min="-12" data-max="12"></div>
+                                <span class="knob-value">0</span>
+                            </div>
+                            <div class="eq-knob-container">
+                                <label>LOW</label>
+                                <div class="knob" id="eqLowA" data-value="0" data-min="-12" data-max="12"></div>
+                                <span class="knob-value">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Deck B EQ -->
+                        <div class="eq-column" id="eqB">
+                            <div class="eq-knob-container">
+                                <label>HI</label>
+                                <div class="knob" id="eqHighB" data-value="0" data-min="-12" data-max="12"></div>
+                                <span class="knob-value">0</span>
+                            </div>
+                            <div class="eq-knob-container">
+                                <label>MID</label>
+                                <div class="knob" id="eqMidB" data-value="0" data-min="-12" data-max="12"></div>
+                                <span class="knob-value">0</span>
+                            </div>
+                            <div class="eq-knob-container">
+                                <label>LOW</label>
+                                <div class="knob" id="eqLowB" data-value="0" data-min="-12" data-max="12"></div>
+                                <span class="knob-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Volume Faders -->
+                    <div class="volume-section">
+                        <div class="volume-fader-container">
+                            <label>A</label>
+                            <input type="range" id="volumeA" class="volume-fader" min="0" max="1" step="0.01" value="1" orient="vertical">
+                            <div class="volume-meter" id="meterA">
+                                <div class="meter-fill"></div>
+                            </div>
+                        </div>
+                        <div class="volume-fader-container">
+                            <label>B</label>
+                            <input type="range" id="volumeB" class="volume-fader" min="0" max="1" step="0.01" value="1" orient="vertical">
+                            <div class="volume-meter" id="meterB">
+                                <div class="meter-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Crossfader -->
+                    <div class="crossfader-section">
+                        <label>CROSSFADER</label>
+                        <div class="crossfader-container">
+                            <span class="cf-label">A</span>
+                            <input type="range" id="crossfader" class="crossfader" min="0" max="1" step="0.01" value="0.5">
+                            <span class="cf-label">B</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deck B -->
+                <div class="deck" id="deckB" data-deck="B">
+                    <div class="deck-header">
+                        <span class="deck-label">DECK B</span>
+                        <div class="track-info">
+                            <span class="track-name" id="trackNameB">No Track Loaded</span>
+                            <span class="track-bpm" id="trackBpmB">-- BPM</span>
+                        </div>
+                    </div>
+
+                    <!-- Mini Waveform -->
+                    <div class="mini-waveform-container">
+                        <canvas id="waveformB" class="mini-waveform"></canvas>
+                        <div class="waveform-time">
+                            <span id="currentTimeB">0:00</span>
+                            <span id="totalTimeB">0:00</span>
+                        </div>
+                    </div>
+
+                    <!-- Load Button / Drop Zone -->
+                    <div class="load-zone" id="loadZoneB">
+                        <input type="file" id="fileInputB" accept="audio/*" hidden>
+                        <button class="load-btn" onclick="document.getElementById('fileInputB').click()">
+                            Load Track
+                        </button>
+                        <span class="drop-hint">or drag & drop</span>
+                    </div>
+
+                    <!-- Tempo & Pitch Controls -->
+                    <div class="tempo-pitch-section">
+                        <div class="control-group">
+                            <label>TEMPO</label>
+                            <div class="slider-with-reset">
+                                <button class="reset-tempo-btn" id="resetTempoB" title="Reset tempo">&#9654;</button>
+                                <input type="range" id="tempoB" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
+                            </div>
+                            <span class="control-value" id="tempoValueB">1.00x</span>
+                        </div>
+                        <div class="control-group">
+                            <label>PITCH</label>
+                            <input type="range" id="pitchB" class="vertical-slider" min="-12" max="12" step="0.1" value="0" orient="vertical">
+                            <span class="control-value" id="pitchValueB">0 st</span>
+                        </div>
+                    </div>
+
+                    <!-- Transport Controls -->
+                    <div class="transport-controls">
+                        <button class="transport-btn play-btn" id="playB">
+                            <span class="icon">▶</span>
+                        </button>
+                        <button class="transport-btn pause-btn" id="pauseB">
+                            <span class="icon">⏸</span>
+                        </button>
+                        <button class="transport-btn stop-btn" id="stopB">
+                            <span class="icon">⏹</span>
+                        </button>
+                        <button class="transport-btn cue-btn" id="cueB">
+                            CUE
+                        </button>
+                        <button class="transport-btn sync-btn" id="syncB">
+                            SYNC
+                        </button>
+                    </div>
+
+                    <!-- Hot Cues -->
+                    <div class="hot-cues">
+                        <button class="hot-cue-btn" id="hotCueB1">1</button>
+                        <button class="hot-cue-btn" id="hotCueB2">2</button>
+                        <button class="hot-cue-btn" id="hotCueB3">3</button>
+                        <button class="hot-cue-btn" id="hotCueB4">4</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <span>DJ Mix Web - Built with Web Audio API</span>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/bpmDetector.js"></script>
+    <script src="js/waveformGenerator.js"></script>
+    <script src="js/audioEngine.js"></script>
+    <script src="js/deck.js"></script>
+    <script src="js/mixer.js"></script>
+    <script src="js/knob.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
