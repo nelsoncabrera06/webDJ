@@ -208,6 +208,46 @@ input[type="range"]::-webkit-slider-thumb:active {
     font-size: 1.2rem;
 }
 
+/* MIDI Indicator */
+.midi-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    opacity: 0.5;
+    transition: all var(--transition-normal);
+}
+
+.midi-indicator.connected {
+    opacity: 1;
+    color: var(--accent-green);
+    border-color: rgba(0, 255, 136, 0.3);
+    background: rgba(0, 255, 136, 0.1);
+}
+
+.midi-indicator.connected .midi-icon {
+    animation: midi-pulse 1.5s ease-in-out infinite;
+}
+
+.midi-icon {
+    font-size: 1rem;
+}
+
+@keyframes midi-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
 /* Settings Modal */
 .settings-modal {
     position: fixed;

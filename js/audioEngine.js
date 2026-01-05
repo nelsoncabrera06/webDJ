@@ -1,6 +1,8 @@
 /**
  * DJ Mix Web - Audio Engine
- * Core audio processing using Web Audio API
+ * Core audio processing using HTML5 Audio + Web Audio API
+ * Uses <audio> elements for playback (with preservesPitch support)
+ * Uses Web Audio API for EQ and mixing
  */
 
 class AudioEngine {
@@ -22,9 +24,6 @@ class AudioEngine {
 
         // Position update loop
         this.positionLoop = null;
-
-        // Browser support flags
-        this.supportsPreservesPitch = false;
     }
 
     /**
@@ -33,12 +32,13 @@ class AudioEngine {
     createDeckState(id) {
         return {
             id,
-            audioBuffer: null,
 
-            // Audio source node (recreated each play)
-            source: null,
+            // HTML5 Audio element
+            audioElement: null,
+            mediaSource: null,  // MediaElementAudioSourceNode
+            objectUrl: null,    // For cleanup
 
-            // Audio nodes
+            // Audio nodes (Web Audio API)
             gainNode: null,
             eqLow: null,
             eqMid: null,
@@ -48,9 +48,6 @@ class AudioEngine {
             // Playback state
             isPlaying: false,
             isPaused: false,
-            startTime: 0,        // AudioContext time when playback started
-            startOffset: 0,      // Position in track when playback started
-            currentPosition: 0,  // Current position in seconds
             duration: 0,
             tempo: 1.0,
 
@@ -70,36 +67,15 @@ class AudioEngine {
             trackName: '',
             bpm: 0,
 
-            // Pitch shift in semitones
+            // Pitch shift in semitones (for independent mode)
             pitchSemitones: 0,
 
             // For linked/independent mode
-            preservesPitch: true
+            preservesPitch: true,
+
+            // Original audio buffer for waveform/BPM
+            audioBuffer: null
         };
-    }
-
-    /**
-     * Check if browser supports preservesPitch
-     */
-    checkPreservesPitchSupport() {
-        const testSource = this.audioContext.createBufferSource();
-        // Use typeof for more robust detection (some browsers expose it as getter)
-        return typeof testSource.preservesPitch === 'boolean' ||
-               typeof testSource.mozPreservesPitch === 'boolean' ||
-               typeof testSource.webkitPreservesPitch === 'boolean';
-    }
-
-    /**
-     * Set preservesPitch on a source node (handles vendor prefixes)
-     */
-    setSourcePreservesPitch(source, preserve) {
-        if ('preservesPitch' in source) {
-            source.preservesPitch = preserve;
-        } else if ('mozPreservesPitch' in source) {
-            source.mozPreservesPitch = preserve;
-        } else if ('webkitPreservesPitch' in source) {
-            source.webkitPreservesPitch = preserve;
-        }
     }
 
     /**
@@ -109,15 +85,6 @@ class AudioEngine {
         if (this.audioContext) return;
 
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-        // Check browser support
-        this.supportsPreservesPitch = this.checkPreservesPitchSupport();
-
-        if (this.supportsPreservesPitch) {
-            console.log('Browser supports preservesPitch - time-stretching enabled');
-        } else {
-            console.warn('Browser does NOT support preservesPitch - tempo changes will affect pitch (vinyl-like behavior)');
-        }
 
         // Create master gain
         this.masterGain = this.audioContext.createGain();
@@ -131,7 +98,7 @@ class AudioEngine {
         // Start position update loop
         this.startPositionLoop();
 
-        console.log('Audio Engine initialized');
+        console.log('Audio Engine initialized (HTML5 Audio mode)');
     }
 
     /**
@@ -139,6 +106,10 @@ class AudioEngine {
      */
     initDeckNodes(deckId) {
         const deck = this.decks[deckId];
+
+        // Create audio element
+        deck.audioElement = new Audio();
+        deck.audioElement.crossOrigin = 'anonymous';
 
         // Create gain node
         deck.gainNode = this.audioContext.createGain();
@@ -164,12 +135,65 @@ class AudioEngine {
         deck.analyser = this.audioContext.createAnalyser();
         deck.analyser.fftSize = 256;
 
-        // Connect chain: [source] -> eqLow -> eqMid -> eqHigh -> gain -> analyser -> master
+        // Connect EQ chain: eqLow -> eqMid -> eqHigh -> gain -> analyser -> master
         deck.eqLow.connect(deck.eqMid);
         deck.eqMid.connect(deck.eqHigh);
         deck.eqHigh.connect(deck.gainNode);
         deck.gainNode.connect(deck.analyser);
         deck.analyser.connect(this.masterGain);
+
+        // Setup audio element events
+        this.setupAudioElementEvents(deckId);
+    }
+
+    /**
+     * Setup events for audio element
+     */
+    setupAudioElementEvents(deckId) {
+        const deck = this.decks[deckId];
+        const audio = deck.audioElement;
+
+        audio.addEventListener('ended', () => {
+            deck.isPlaying = false;
+            deck.isPaused = false;
+            this.events.emit('trackEnded', deckId);
+            this.events.emit('stop', deckId);
+        });
+
+        audio.addEventListener('play', () => {
+            deck.isPlaying = true;
+            deck.isPaused = false;
+        });
+
+        audio.addEventListener('pause', () => {
+            if (deck.isPlaying) {
+                deck.isPaused = true;
+            }
+        });
+
+        audio.addEventListener('loadedmetadata', () => {
+            deck.duration = audio.duration;
+        });
+    }
+
+    /**
+     * Connect audio element to Web Audio API
+     */
+    connectAudioElement(deckId) {
+        const deck = this.decks[deckId];
+
+        // Disconnect existing source if any
+        if (deck.mediaSource) {
+            try {
+                deck.mediaSource.disconnect();
+            } catch (e) {}
+        }
+
+        // Create new MediaElementSourceNode
+        deck.mediaSource = this.audioContext.createMediaElementSource(deck.audioElement);
+
+        // Connect to EQ chain
+        deck.mediaSource.connect(deck.eqLow);
     }
 
     /**
@@ -181,27 +205,63 @@ class AudioEngine {
         // Stop current playback
         this.stop(deckId);
 
-        // Read file as ArrayBuffer
-        const arrayBuffer = await file.arrayBuffer();
+        // Cleanup previous object URL
+        if (deck.objectUrl) {
+            URL.revokeObjectURL(deck.objectUrl);
+        }
 
-        // Decode audio data
-        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+        // Create object URL for the file
+        deck.objectUrl = URL.createObjectURL(file);
 
-        // Store in deck
-        deck.audioBuffer = audioBuffer;
-        deck.duration = audioBuffer.duration;
+        // Create new audio element (needed to change source)
+        const oldAudio = deck.audioElement;
+
+        // If this is the first load, connect to Web Audio API
+        if (!deck.mediaSource) {
+            this.connectAudioElement(deckId);
+        }
+
+        // Set the source
+        deck.audioElement.src = deck.objectUrl;
+
+        // Apply current settings
+        deck.audioElement.playbackRate = deck.tempo;
+        this.setAudioPreservesPitch(deck.audioElement, deck.preservesPitch);
+
+        // Wait for metadata
+        await new Promise((resolve, reject) => {
+            const onLoaded = () => {
+                deck.audioElement.removeEventListener('loadedmetadata', onLoaded);
+                deck.audioElement.removeEventListener('error', onError);
+                resolve();
+            };
+            const onError = (e) => {
+                deck.audioElement.removeEventListener('loadedmetadata', onLoaded);
+                deck.audioElement.removeEventListener('error', onError);
+                reject(e);
+            };
+            deck.audioElement.addEventListener('loadedmetadata', onLoaded);
+            deck.audioElement.addEventListener('error', onError);
+            deck.audioElement.load();
+        });
+
+        // Store track info
         deck.trackName = Utils.getFileNameWithoutExt(file.name);
-        deck.currentPosition = 0;
+        deck.duration = deck.audioElement.duration;
         deck.cuePoint = 0;
         deck.hotCues = [null, null, null, null];
 
+        // Decode audio for waveform and BPM detection
+        const arrayBuffer = await file.arrayBuffer();
+        deck.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
         // Detect BPM
         const bpmDetector = new BPMDetector();
-        deck.bpm = await bpmDetector.detect(audioBuffer);
+        deck.bpm = await bpmDetector.detect(deck.audioBuffer);
 
         // Generate waveform
         const waveformGenerator = new WaveformGenerator();
-        const waveformData = waveformGenerator.generate(audioBuffer);
+        const waveformData = waveformGenerator.generate(deck.audioBuffer);
 
         // Emit events
         this.events.emit('trackLoaded', deckId, {
@@ -220,47 +280,16 @@ class AudioEngine {
     }
 
     /**
-     * Create audio source for a deck
+     * Set preservesPitch on audio element (with vendor prefixes)
      */
-    createSource(deckId) {
-        const deck = this.decks[deckId];
-        if (!deck.audioBuffer) return null;
-
-        // Create buffer source
-        const source = this.audioContext.createBufferSource();
-        source.buffer = deck.audioBuffer;
-
-        // Set playback rate (tempo)
-        source.playbackRate.value = deck.tempo;
-
-        // Set preservesPitch based on mode and browser support
-        if (this.supportsPreservesPitch) {
-            // In linked mode: preserve pitch (tempo doesn't affect pitch)
-            // In independent mode: don't preserve pitch (vinyl-like)
-            this.setSourcePreservesPitch(source, deck.preservesPitch);
+    setAudioPreservesPitch(audio, preserve) {
+        if ('preservesPitch' in audio) {
+            audio.preservesPitch = preserve;
+        } else if ('mozPreservesPitch' in audio) {
+            audio.mozPreservesPitch = preserve;
+        } else if ('webkitPreservesPitch' in audio) {
+            audio.webkitPreservesPitch = preserve;
         }
-
-        // Set detune for pitch shifting (100 cents = 1 semitone)
-        // Only apply in linked mode when preservesPitch is true
-        if (deck.preservesPitch && deck.pitchSemitones !== 0) {
-            source.detune.value = deck.pitchSemitones * 100;
-        }
-
-        // Connect to EQ chain
-        source.connect(deck.eqLow);
-
-        // Handle track end
-        source.onended = () => {
-            if (deck.isPlaying && !deck.isPaused) {
-                const position = this.getPosition(deckId);
-                if (position >= deck.duration - 0.1) {
-                    this.stop(deckId);
-                    this.events.emit('trackEnded', deckId);
-                }
-            }
-        };
-
-        return source;
     }
 
     /**
@@ -268,7 +297,7 @@ class AudioEngine {
      */
     play(deckId) {
         const deck = this.decks[deckId];
-        if (!deck.audioBuffer) return;
+        if (!deck.audioElement.src) return;
 
         // If already playing, do nothing
         if (deck.isPlaying && !deck.isPaused) return;
@@ -278,29 +307,7 @@ class AudioEngine {
             this.audioContext.resume();
         }
 
-        // Stop existing source
-        if (deck.source) {
-            try {
-                deck.source.stop();
-                deck.source.disconnect();
-            } catch (e) {}
-            deck.source = null;
-        }
-
-        // Create new source
-        deck.source = this.createSource(deckId);
-        if (!deck.source) return;
-
-        // Calculate start offset
-        const offset = deck.isPaused ? deck.currentPosition : deck.currentPosition;
-
-        // Store timing info
-        deck.startTime = this.audioContext.currentTime;
-        deck.startOffset = offset;
-
-        // Start playback from offset
-        deck.source.start(0, offset);
-
+        deck.audioElement.play();
         deck.isPlaying = true;
         deck.isPaused = false;
 
@@ -315,18 +322,7 @@ class AudioEngine {
         const deck = this.decks[deckId];
         if (!deck.isPlaying || deck.isPaused) return;
 
-        // Save current position before stopping
-        deck.currentPosition = this.getPosition(deckId);
-
-        // Stop source
-        if (deck.source) {
-            try {
-                deck.source.stop();
-                deck.source.disconnect();
-            } catch (e) {}
-            deck.source = null;
-        }
-
+        deck.audioElement.pause();
         deck.isPaused = true;
         this.events.emit('pause', deckId);
     }
@@ -337,18 +333,11 @@ class AudioEngine {
     stop(deckId) {
         const deck = this.decks[deckId];
 
-        // Stop source
-        if (deck.source) {
-            try {
-                deck.source.stop();
-                deck.source.disconnect();
-            } catch (e) {}
-            deck.source = null;
-        }
+        deck.audioElement.pause();
+        deck.audioElement.currentTime = deck.cuePoint;
 
         deck.isPlaying = false;
         deck.isPaused = false;
-        deck.currentPosition = deck.cuePoint;
 
         this.events.emit('stop', deckId);
     }
@@ -358,18 +347,7 @@ class AudioEngine {
      */
     getPosition(deckId) {
         const deck = this.decks[deckId];
-
-        if (!deck.audioBuffer) return 0;
-
-        if (deck.isPaused || !deck.isPlaying) {
-            return deck.currentPosition;
-        }
-
-        // Calculate position based on elapsed time and playback rate
-        const elapsed = this.audioContext.currentTime - deck.startTime;
-        const position = deck.startOffset + (elapsed * deck.tempo);
-
-        return Math.min(position, deck.duration);
+        return deck.audioElement.currentTime || 0;
     }
 
     /**
@@ -377,30 +355,10 @@ class AudioEngine {
      */
     seek(deckId, position) {
         const deck = this.decks[deckId];
-        if (!deck.audioBuffer) return;
+        if (!deck.audioElement.src) return;
 
         position = Utils.clamp(position, 0, deck.duration);
-
-        const wasPlaying = deck.isPlaying && !deck.isPaused;
-
-        // Stop current playback
-        if (deck.source) {
-            try {
-                deck.source.stop();
-                deck.source.disconnect();
-            } catch (e) {}
-            deck.source = null;
-        }
-
-        // Update position
-        deck.currentPosition = position;
-        deck.isPlaying = false;
-        deck.isPaused = false;
-
-        // Resume if was playing
-        if (wasPlaying) {
-            this.play(deckId);
-        }
+        deck.audioElement.currentTime = position;
 
         this.events.emit('seek', deckId, position);
     }
@@ -412,19 +370,8 @@ class AudioEngine {
         const deck = this.decks[deckId];
         tempo = Utils.clamp(tempo, 0.5, 1.5);
 
-        // Save current position before changing tempo
-        if (deck.isPlaying && !deck.isPaused) {
-            deck.currentPosition = this.getPosition(deckId);
-            deck.startTime = this.audioContext.currentTime;
-            deck.startOffset = deck.currentPosition;
-        }
-
         deck.tempo = tempo;
-
-        // Update source playback rate if playing
-        if (deck.source) {
-            deck.source.playbackRate.value = tempo;
-        }
+        deck.audioElement.playbackRate = tempo;
 
         this.events.emit('tempoChange', deckId, tempo);
     }
@@ -551,42 +498,27 @@ class AudioEngine {
         const deck = this.decks[deckId];
         deck.preservesPitch = preserve;
 
-        if (!this.supportsPreservesPitch && preserve) {
-            console.warn(`Deck ${deckId}: preservesPitch not supported - tempo will affect pitch`);
-        }
+        this.setAudioPreservesPitch(deck.audioElement, preserve);
 
-        // If playing, restart to apply changes
-        if (deck.isPlaying && !deck.isPaused) {
-            const currentPos = this.getPosition(deckId);
-            if (deck.source) {
-                try {
-                    deck.source.stop();
-                    deck.source.disconnect();
-                } catch (e) {}
-                deck.source = null;
-            }
-            deck.currentPosition = currentPos;
-            deck.isPlaying = false;
-            this.play(deckId);
-        }
+        console.log(`Deck ${deckId}: preservesPitch = ${preserve}`);
     }
 
     /**
      * Set pitch shift in semitones (-12 to +12)
-     * Uses detune parameter (100 cents = 1 semitone)
-     * Only works when preservesPitch is true (linked mode)
+     * Note: With HTML5 Audio, pitch shift requires changing playbackRate
+     * This only works meaningfully in independent mode
      */
     setPitch(deckId, semitones) {
         const deck = this.decks[deckId];
         semitones = Utils.clamp(semitones, -12, 12);
         deck.pitchSemitones = semitones;
 
-        // Update source detune if playing
-        if (deck.source && deck.source.detune) {
-            // Only apply detune in linked mode
-            if (deck.preservesPitch) {
-                deck.source.detune.value = semitones * 100;
-            }
+        // In independent mode, we can combine tempo and pitch
+        // by adjusting playbackRate
+        // pitchRatio = 2^(semitones/12)
+        if (!deck.preservesPitch) {
+            const pitchRatio = Math.pow(2, semitones / 12);
+            deck.audioElement.playbackRate = deck.tempo * pitchRatio;
         }
 
         this.events.emit('pitchChange', deckId, semitones);

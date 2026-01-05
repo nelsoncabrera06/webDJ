@@ -9,6 +9,7 @@ class DJMixApp {
         this.deckA = null;
         this.deckB = null;
         this.mixer = null;
+        this.midiController = null;
 
         this.isInitialized = false;
     }
@@ -38,6 +39,9 @@ class DJMixApp {
 
         // Setup settings
         this.setupSettings();
+
+        // Setup MIDI controller
+        this.setupMIDI();
 
         this.isInitialized = true;
         console.log('DJ Mix Web initialized');
@@ -357,6 +361,51 @@ class DJMixApp {
             // Linked mode: tempo doesn't affect pitch (time-stretching)
             this.audioEngine.setPreservesPitch('A', true);
             this.audioEngine.setPreservesPitch('B', true);
+        }
+    }
+
+    /**
+     * Setup MIDI controller
+     */
+    async setupMIDI() {
+        const midiIndicator = document.getElementById('midiIndicator');
+
+        // Check if Web MIDI API is available
+        if (!navigator.requestMIDIAccess) {
+            console.log('Web MIDI API not supported');
+            if (midiIndicator) {
+                midiIndicator.title = 'MIDI not supported in this browser';
+            }
+            return;
+        }
+
+        // Create MIDI controller
+        this.midiController = new MIDIController(
+            this.audioEngine,
+            this.deckA,
+            this.deckB,
+            this.mixer
+        );
+
+        // Set up connection callback
+        this.midiController.onConnectionChange = (connected, deviceNames) => {
+            if (midiIndicator) {
+                if (connected) {
+                    midiIndicator.classList.add('connected');
+                    midiIndicator.title = `MIDI Connected: ${deviceNames.join(', ')}`;
+                    console.log(`MIDI devices connected: ${deviceNames.join(', ')}`);
+                } else {
+                    midiIndicator.classList.remove('connected');
+                    midiIndicator.title = 'MIDI Controller: Not connected';
+                    console.log('MIDI disconnected');
+                }
+            }
+        };
+
+        // Initialize MIDI
+        const success = await this.midiController.init();
+        if (!success) {
+            console.log('Failed to initialize MIDI controller');
         }
     }
 }
