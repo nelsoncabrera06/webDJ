@@ -77,6 +77,19 @@ class WaveformVisualizer {
         this.waveformData = null;
         this.position = 0; // 0-1 normalized position
         this.duration = 0;
+        this.hotCues = [null, null, null, null, null, null, null, null]; // Hot cue positions in seconds
+
+        // Hot cue colors (8 colors for hot cues 1-8)
+        this.hotCueColors = [
+            '#FF0000', // 1 - Rojo
+            '#00FF00', // 2 - Verde
+            '#0088FF', // 3 - Azul
+            '#FFFF00', // 4 - Amarillo
+            '#FF00FF', // 5 - Magenta
+            '#00FFFF', // 6 - Cyan
+            '#FF8800', // 7 - Naranja
+            '#88FF00'  // 8 - Lima
+        ];
 
         // Options
         this.options = {
@@ -145,6 +158,37 @@ class WaveformVisualizer {
     }
 
     /**
+     * Set hot cue positions
+     * @param {Array} hotCues - Array of positions in seconds (null if not set)
+     */
+    setHotCues(hotCues) {
+        this.hotCues = hotCues;
+        this.render();
+    }
+
+    /**
+     * Draw hot cue markers on the waveform
+     */
+    drawHotCueMarkers() {
+        if (!this.duration || this.duration === 0) return;
+
+        const { ctx, width, height } = this;
+
+        this.hotCues.forEach((position, index) => {
+            if (position !== null && position !== undefined) {
+                const x = (position / this.duration) * width;
+
+                ctx.strokeStyle = this.hotCueColors[index];
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+        });
+    }
+
+    /**
      * Render the waveform
      */
     render() {
@@ -197,6 +241,9 @@ class WaveformVisualizer {
                 ctx.fillRect(x, height - barHeight, options.barWidth, barHeight);
             }
         }
+
+        // Draw hot cue markers on top
+        this.drawHotCueMarkers();
     }
 
     /**
@@ -290,6 +337,45 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
 
             ctx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
         }
+
+        // Draw hot cue markers with labels
+        this.drawHotCueMarkersZoomed(ctx, width, height, startTime, endTime);
+    }
+
+    /**
+     * Draw hot cue markers with labels for zoomed waveform
+     */
+    drawHotCueMarkersZoomed(ctx, width, height, startTime, endTime) {
+        const pixelsPerSecond = width / this.windowSeconds;
+
+        this.hotCues.forEach((position, index) => {
+            if (position !== null && position !== undefined) {
+                // Check if hot cue is in visible window
+                if (position >= startTime && position <= endTime) {
+                    const x = (position - startTime) * pixelsPerSecond;
+
+                    // Draw line
+                    ctx.strokeStyle = this.hotCueColors[index];
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+
+                    // Draw label background
+                    const label = `Cue ${index + 1}`;
+                    ctx.font = 'bold 10px sans-serif';
+                    const textWidth = ctx.measureText(label).width;
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(x + 2, 2, textWidth + 6, 14);
+
+                    // Draw label text
+                    ctx.fillStyle = this.hotCueColors[index];
+                    ctx.fillText(label, x + 5, 12);
+                }
+            }
+        });
     }
 
     /**

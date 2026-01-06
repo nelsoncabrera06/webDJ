@@ -19,6 +19,7 @@ class DeckController {
         // State
         this.waveformData = null;
         this.duration = 0;
+        this.deleteMode = false;
 
         // Initialize
         this.init();
@@ -61,13 +62,18 @@ class DeckController {
             cueBtn: document.getElementById(`cue${id}`),
             syncBtn: document.getElementById(`sync${id}`),
 
-            // Hot cues
+            // Hot cues (1-8)
             hotCueBtns: [
                 document.getElementById(`hotCue${id}1`),
                 document.getElementById(`hotCue${id}2`),
                 document.getElementById(`hotCue${id}3`),
-                document.getElementById(`hotCue${id}4`)
-            ]
+                document.getElementById(`hotCue${id}4`),
+                document.getElementById(`hotCue${id}5`),
+                document.getElementById(`hotCue${id}6`),
+                document.getElementById(`hotCue${id}7`),
+                document.getElementById(`hotCue${id}8`)
+            ],
+            delBtn: document.getElementById(`del${id}`)
         };
     }
 
@@ -151,13 +157,31 @@ class DeckController {
 
         // Hot cues
         this.elements.hotCueBtns.forEach((btn, index) => {
-            btn.addEventListener('click', () => this.handleHotCue(index + 1));
+            if (!btn) return; // Skip if button doesn't exist
+            btn.addEventListener('click', () => {
+                if (this.deleteMode) {
+                    // Delete mode: clear the hot cue
+                    this.audioEngine.clearHotCue(this.deckId, index + 1);
+                    btn.classList.remove('set');
+                    this.exitDeleteMode();
+                } else {
+                    // Normal mode: go to hot cue or set it
+                    this.handleHotCue(index + 1);
+                }
+            });
             btn.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 this.audioEngine.clearHotCue(this.deckId, index + 1);
                 btn.classList.remove('set');
             });
         });
+
+        // DEL button - toggle delete mode
+        if (this.elements.delBtn) {
+            this.elements.delBtn.addEventListener('click', () => {
+                this.toggleDeleteMode();
+            });
+        }
 
         // Mini waveform click to seek
         this.elements.miniWaveformContainer.addEventListener('click', (e) => {
@@ -236,12 +260,16 @@ class DeckController {
         // Hot cue events
         this.audioEngine.on('hotCueSet', (deckId, index, position) => {
             if (deckId !== this.deckId) return;
-            this.elements.hotCueBtns[index - 1].classList.add('set');
+            const btn = this.elements.hotCueBtns[index - 1];
+            if (btn) btn.classList.add('set');
+            this.updateWaveformHotCues();
         });
 
         this.audioEngine.on('hotCueCleared', (deckId, index) => {
             if (deckId !== this.deckId) return;
-            this.elements.hotCueBtns[index - 1].classList.remove('set');
+            const btn = this.elements.hotCueBtns[index - 1];
+            if (btn) btn.classList.remove('set');
+            this.updateWaveformHotCues();
         });
 
         // Tempo changes
@@ -360,12 +388,52 @@ class DeckController {
     }
 
     /**
+     * Toggle delete mode for hot cues
+     */
+    toggleDeleteMode() {
+        this.deleteMode = !this.deleteMode;
+        if (this.elements.delBtn) {
+            this.elements.delBtn.classList.toggle('active', this.deleteMode);
+        }
+        // Visual feedback: add class to hot cue buttons
+        this.elements.hotCueBtns.forEach(btn => {
+            if (btn) btn.classList.toggle('delete-mode', this.deleteMode);
+        });
+    }
+
+    /**
+     * Exit delete mode
+     */
+    exitDeleteMode() {
+        this.deleteMode = false;
+        if (this.elements.delBtn) {
+            this.elements.delBtn.classList.remove('active');
+        }
+        this.elements.hotCueBtns.forEach(btn => {
+            if (btn) btn.classList.remove('delete-mode');
+        });
+    }
+
+    /**
      * Reset tempo to original (1.0x)
      */
     resetTempo() {
         this.audioEngine.setTempo(this.deckId, 1.0);
         this.elements.tempoSlider.value = 1.0;
         this.elements.tempoValue.textContent = '1.00x';
+    }
+
+    /**
+     * Update waveform visualizers with hot cue positions
+     */
+    updateWaveformHotCues() {
+        const deck = this.audioEngine.decks[this.deckId];
+        if (this.miniWaveform) {
+            this.miniWaveform.setHotCues([...deck.hotCues]);
+        }
+        if (this.zoomedWaveform) {
+            this.zoomedWaveform.setHotCues([...deck.hotCues]);
+        }
     }
 }
 

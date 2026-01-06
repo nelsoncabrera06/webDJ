@@ -61,7 +61,7 @@ class AudioEngine {
 
             // Cue points
             cuePoint: 0,
-            hotCues: [null, null, null, null],
+            hotCues: [null, null, null, null, null, null, null, null],
 
             // Track info
             trackName: '',
@@ -452,7 +452,7 @@ class AudioEngine {
      */
     setHotCue(deckId, index) {
         const deck = this.decks[deckId];
-        if (index < 1 || index > 4) return;
+        if (index < 1 || index > 8) return;
 
         const position = this.getPosition(deckId);
         deck.hotCues[index - 1] = position;
@@ -464,7 +464,7 @@ class AudioEngine {
      */
     goToHotCue(deckId, index) {
         const deck = this.decks[deckId];
-        if (index < 1 || index > 4) return;
+        if (index < 1 || index > 8) return;
 
         const position = deck.hotCues[index - 1];
         if (position !== null) {
@@ -483,7 +483,7 @@ class AudioEngine {
      */
     clearHotCue(deckId, index) {
         const deck = this.decks[deckId];
-        if (index < 1 || index > 4) return;
+        if (index < 1 || index > 8) return;
 
         deck.hotCues[index - 1] = null;
         this.events.emit('hotCueCleared', deckId, index);

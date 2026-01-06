@@ -302,20 +302,32 @@
     border-color: var(--accent-green);
 }
 
-/* Hot Cues */
-.hot-cues {
+/* Hot Cues Container */
+.hot-cues-container {
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: var(--spacing-sm);
 }
 
+.hot-cues-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hot-cues-row {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
 .hot-cue-btn {
-    width: 45px;
-    height: 35px;
+    width: 40px;
+    height: 30px;
     border-radius: var(--radius-sm);
     background: var(--bg-tertiary);
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 700;
     border: 1px solid var(--border-color);
 }
@@ -325,18 +337,57 @@
     color: var(--text-primary);
 }
 
+/* Hot cue buttons - cuando están activos solo cambia el borde */
 .hot-cue-btn.set {
-    background: var(--accent-yellow);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-width: 2px;
+}
+
+/* Delete mode - visual feedback */
+.hot-cue-btn.delete-mode {
+    animation: delete-pulse 0.5s ease-in-out infinite;
+}
+
+.hot-cue-btn.delete-mode.set {
+    background: rgba(255, 0, 0, 0.2);
+}
+
+@keyframes delete-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Colores específicos por hot cue (1-8) */
+#hotCueA1.set, #hotCueB1.set { border-color: #FF0000; }
+#hotCueA2.set, #hotCueB2.set { border-color: #00FF00; }
+#hotCueA3.set, #hotCueB3.set { border-color: #0088FF; }
+#hotCueA4.set, #hotCueB4.set { border-color: #FFFF00; }
+#hotCueA5.set, #hotCueB5.set { border-color: #FF00FF; }
+#hotCueA6.set, #hotCueB6.set { border-color: #00FFFF; }
+#hotCueA7.set, #hotCueB7.set { border-color: #FF8800; }
+#hotCueA8.set, #hotCueB8.set { border-color: #88FF00; }
+
+/* DEL Button */
+.del-btn {
+    width: 40px;
+    height: 64px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    font-weight: 700;
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
+}
+
+.del-btn:hover {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+}
+
+.del-btn.active {
+    background: var(--accent-red);
     color: var(--bg-primary);
-    border-color: var(--accent-yellow);
-}
-
-#deckA .hot-cue-btn.set {
-    background: var(--deck-a-color);
-    border-color: var(--deck-a-color);
-}
-
-#deckB .hot-cue-btn.set {
-    background: var(--deck-b-color);
-    border-color: var(--deck-b-color);
+    border-color: var(--accent-red);
 }
