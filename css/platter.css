@@ -1,0 +1,134 @@
+/* DJ Mix Web - Platter/Jog Wheel Styles */
+
+.platter-container {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-sm);
+}
+
+.platter {
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 3px solid var(--border-color);
+    cursor: grab;
+    position: relative;
+    user-select: none;
+    touch-action: none;
+    overflow: hidden;
+}
+
+.platter:active,
+.platter.active {
+    cursor: grabbing;
+}
+
+/* Vinyl disc inside platter */
+.vinyl-disc {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    bottom: 5px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at center,
+            #1a1a2e 0%,
+            #1a1a2e 15%,
+            #0d0d1a 16%,
+            #1a1a2e 17%,
+            #0d0d1a 35%,
+            #1a1a2e 36%,
+            #0d0d1a 55%,
+            #1a1a2e 56%,
+            #0d0d1a 75%,
+            #1a1a2e 76%,
+            #0d0d1a 95%,
+            #1a1a2e 96%
+        );
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Center label */
+.vinyl-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40%;
+    height: 40%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2a2a4a 0%, #1a1a2e 100%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Center hole */
+.vinyl-hole {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Position marker line */
+.vinyl-marker {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 50%;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.6);
+    transform-origin: left center;
+    transform: translateY(-50%);
+    border-radius: 1px;
+}
+
+/* Deck-specific colors */
+#deckA .platter {
+    border-color: var(--deck-a-color);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+}
+
+#deckA .platter:hover,
+#deckA .platter.active {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+}
+
+#deckA .vinyl-label {
+    background: linear-gradient(135deg,
+        rgba(0, 212, 255, 0.3) 0%,
+        rgba(0, 150, 200, 0.2) 100%
+    );
+}
+
+#deckB .platter {
+    border-color: var(--deck-b-color);
+    box-shadow: 0 0 15px rgba(255, 107, 53, 0.2);
+}
+
+#deckB .platter:hover,
+#deckB .platter.active {
+    box-shadow: 0 0 20px rgba(255, 107, 53, 0.4);
+}
+
+#deckB .vinyl-label {
+    background: linear-gradient(135deg,
+        rgba(255, 107, 53, 0.3) 0%,
+        rgba(200, 80, 40, 0.2) 100%
+    );
+}
+
+/* Spinning animation when playing (optional, controlled by JS) */
+.platter.playing .vinyl-disc {
+    animation: spin 1.82s linear infinite; /* 33 RPM */
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

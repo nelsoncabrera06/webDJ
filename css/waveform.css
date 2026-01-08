@@ -69,6 +69,8 @@
 .mini-waveform-container {
     position: relative;
     height: 100px;
+    min-height: 100px;
+    flex-shrink: 0;
     background: var(--bg-tertiary);
     border-radius: var(--radius-md);
     overflow: hidden;

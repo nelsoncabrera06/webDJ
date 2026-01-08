@@ -41,7 +41,9 @@ class MIDIController {
                 // Loop (Notes)
                 loopHalve: 23,   // Flecha izquierda <
                 loopDouble: 24,  // Flecha derecha >
-                loopToggle: 25   // ON/OFF
+                loopToggle: 25,  // ON/OFF
+                // Jog wheel (CC - relative encoder, 64 = center)
+                jogWheel: 26
                 // Tempo uses Pitch Bend on CH0
             },
             // Deck B (Channel 1)
@@ -67,7 +69,9 @@ class MIDIController {
                 // Loop (Notes)
                 loopHalve: 56,   // Flecha izquierda <
                 loopDouble: 55,  // Flecha derecha >
-                loopToggle: 57   // ON/OFF
+                loopToggle: 57,  // ON/OFF
+                // Jog wheel (CC - relative encoder, 64 = center)
+                jogWheel: 58
                 // Tempo uses Pitch Bend on CH1
             },
             // Global controls
@@ -282,7 +286,13 @@ class MIDIController {
 
         // Deck A controls (Channel 0)
         if (channel === this.mapping.deckA.channel) {
-            if (controller === this.mapping.deckA.volume) {
+            if (controller === this.mapping.deckA.jogWheel) {
+                // Jog wheel: value 64 = neutral, >64 = right, <64 = left
+                const delta = value - 64;
+                if (delta !== 0 && this.deckA.platter) {
+                    this.deckA.platter.handleMIDIJog(delta);
+                }
+            } else if (controller === this.mapping.deckA.volume) {
                 const volume = value / 127;
                 this.audioEngine.setVolume('A', volume);
                 this.updateSlider('volumeA', volume);
@@ -306,7 +316,13 @@ class MIDIController {
         }
         // Deck B controls (Channel 1)
         else if (channel === this.mapping.deckB.channel) {
-            if (controller === this.mapping.deckB.volume) {
+            if (controller === this.mapping.deckB.jogWheel) {
+                // Jog wheel: value 64 = neutral, >64 = right, <64 = left
+                const delta = value - 64;
+                if (delta !== 0 && this.deckB.platter) {
+                    this.deckB.platter.handleMIDIJog(delta);
+                }
+            } else if (controller === this.mapping.deckB.volume) {
                 const volume = value / 127;
                 this.audioEngine.setVolume('B', volume);
                 this.updateSlider('volumeB', volume);

@@ -16,6 +16,9 @@ class DeckController {
         this.miniWaveform = null;
         this.zoomedWaveform = null;
 
+        // Platter controller
+        this.platter = null;
+
         // State
         this.waveformData = null;
         this.duration = 0;
@@ -89,6 +92,14 @@ class DeckController {
         this.setupWaveforms();
         this.setupEventListeners();
         this.setupAudioEngineListeners();
+        this.setupPlatter();
+    }
+
+    /**
+     * Setup platter controller
+     */
+    setupPlatter() {
+        this.platter = new PlatterController(this.deckId, this.audioEngine);
     }
 
     /**

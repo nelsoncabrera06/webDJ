@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="css/deck.css">
     <link rel="stylesheet" href="css/mixer.css">
     <link rel="stylesheet" href="css/waveform.css">
+    <link rel="stylesheet" href="css/platter.css">
 </head>
 <body>
     <div class="app-container">
@@ -65,6 +66,18 @@
                             Load Track
                         </button>
                         <span class="drop-hint">or drag & drop</span>
+                    </div>
+
+                    <!-- Platter -->
+                    <div class="platter-container">
+                        <div class="platter" id="platterA">
+                            <div class="vinyl-disc">
+                                <div class="vinyl-marker"></div>
+                                <div class="vinyl-label">
+                                    <div class="vinyl-hole"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Loop Controls -->
@@ -237,6 +250,18 @@
                         <span class="drop-hint">or drag & drop</span>
                     </div>
 
+                    <!-- Platter -->
+                    <div class="platter-container">
+                        <div class="platter" id="platterB">
+                            <div class="vinyl-disc">
+                                <div class="vinyl-marker"></div>
+                                <div class="vinyl-label">
+                                    <div class="vinyl-hole"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Loop Controls -->
                     <div class="loop-controls">
                         <span class="loop-label">LOOP</span>
@@ -352,6 +377,7 @@
     <script src="js/mixer.js"></script>
     <script src="js/knob.js"></script>
     <script src="js/midi.js"></script>
+    <script src="js/platter.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
