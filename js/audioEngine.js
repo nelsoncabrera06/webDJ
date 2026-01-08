@@ -74,7 +74,13 @@ class AudioEngine {
             preservesPitch: true,
 
             // Original audio buffer for waveform/BPM
-            audioBuffer: null
+            audioBuffer: null,
+
+            // Loop state
+            loopEnabled: false,
+            loopStart: 0,        // En segundos
+            loopEnd: 0,          // En segundos
+            loopBeats: 4         // Beats (puede ser fracción: 0.03125 = 1/32)
         };
     }
 
@@ -356,6 +362,7 @@ class AudioEngine {
     seek(deckId, position) {
         const deck = this.decks[deckId];
         if (!deck.audioElement.src) return;
+        if (!isFinite(position)) return; // Prevent non-finite values
 
         position = Utils.clamp(position, 0, deck.duration);
         deck.audioElement.currentTime = position;
@@ -467,7 +474,8 @@ class AudioEngine {
         if (index < 1 || index > 8) return;
 
         const position = deck.hotCues[index - 1];
-        if (position !== null) {
+        if (position != null && isFinite(position)) {
+            // Hot cue is set, jump to it
             this.seek(deckId, position);
             if (!deck.isPlaying || deck.isPaused) {
                 this.play(deckId);
@@ -525,7 +533,7 @@ class AudioEngine {
     }
 
     /**
-     * Sync deck to the other deck's tempo
+     * Sync deck to the other deck's tempo and beat phase
      */
     sync(deckId) {
         const sourceDeck = deckId === 'A' ? this.decks.B : this.decks.A;
@@ -533,11 +541,154 @@ class AudioEngine {
 
         if (!sourceDeck.bpm || !targetDeck.bpm) return;
 
-        // Calculate tempo ratio
-        const tempoRatio = sourceDeck.bpm * sourceDeck.tempo / targetDeck.bpm;
+        // Calculate tempo ratio to match effective BPM
+        const sourceEffectiveBpm = sourceDeck.bpm * sourceDeck.tempo;
+        const tempoRatio = sourceEffectiveBpm / targetDeck.bpm;
         this.setTempo(deckId, Utils.clamp(tempoRatio, 0.5, 1.5));
 
+        // Align beat phase
+        this.alignBeatPhase(deckId);
+
         this.events.emit('sync', deckId, tempoRatio);
+    }
+
+    /**
+     * Align the beat phase of a deck to match the other deck
+     */
+    alignBeatPhase(deckId) {
+        const sourceDeck = deckId === 'A' ? this.decks.B : this.decks.A;
+        const targetDeck = this.decks[deckId];
+
+        if (!sourceDeck.bpm || !targetDeck.bpm) return;
+        if (!sourceDeck.isPlaying) return; // Only align if source is playing
+
+        // Get effective BPMs (after tempo adjustment)
+        const sourceEffectiveBpm = sourceDeck.bpm * sourceDeck.tempo;
+        const targetEffectiveBpm = targetDeck.bpm * targetDeck.tempo;
+
+        // Calculate beat phase of source deck (0-1, where in the beat cycle)
+        const sourcePosition = this.getPosition(sourceDeck === this.decks.A ? 'A' : 'B');
+        const sourceSecondsPerBeat = 60 / sourceEffectiveBpm;
+        const sourceBeatPhase = (sourcePosition / sourceSecondsPerBeat) % 1;
+
+        // Calculate current beat phase of target deck
+        const targetPosition = this.getPosition(deckId);
+        const targetSecondsPerBeat = 60 / targetEffectiveBpm;
+        const targetBeatPhase = (targetPosition / targetSecondsPerBeat) % 1;
+
+        // Calculate phase difference (-0.5 to 0.5)
+        let phaseDiff = sourceBeatPhase - targetBeatPhase;
+        if (phaseDiff > 0.5) phaseDiff -= 1;
+        if (phaseDiff < -0.5) phaseDiff += 1;
+
+        // Convert phase difference to time offset
+        const timeOffset = phaseDiff * targetSecondsPerBeat;
+
+        // Apply the offset to align beats
+        const newPosition = targetPosition + timeOffset;
+        if (newPosition >= 0 && newPosition < targetDeck.duration) {
+            targetDeck.audioElement.currentTime = newPosition;
+        }
+    }
+
+    /**
+     * Toggle loop on/off
+     */
+    toggleLoop(deckId) {
+        const deck = this.decks[deckId];
+
+        if (deck.loopEnabled) {
+            // Disable loop
+            deck.loopEnabled = false;
+            this.events.emit('loopDisabled', deckId);
+        } else {
+            // Enable loop at current position
+            if (!deck.bpm || deck.bpm <= 0) return;
+
+            // Cuantizar al beat más cercano
+            const currentPos = this.getPosition(deckId);
+            deck.loopStart = this.quantizeToNearestBeat(deckId, currentPos);
+
+            this.calculateLoopEnd(deckId);
+            deck.loopEnabled = true;
+            this.events.emit('loopEnabled', deckId, deck.loopStart, deck.loopEnd);
+        }
+    }
+
+    /**
+     * Quantize a time position to the nearest beat
+     */
+    quantizeToNearestBeat(deckId, time) {
+        const deck = this.decks[deckId];
+        if (!deck.bpm || deck.bpm <= 0) return time;
+
+        const secondsPerBeat = 60 / deck.bpm;
+        const beatNumber = Math.round(time / secondsPerBeat);
+        return beatNumber * secondsPerBeat;
+    }
+
+    /**
+     * Calculate loop end based on BPM and beats
+     */
+    calculateLoopEnd(deckId) {
+        const deck = this.decks[deckId];
+        if (!deck.bpm || deck.bpm <= 0) return;
+
+        // seconds per beat = 60 / bpm
+        // loop duration = beats * (60 / bpm)
+        const secondsPerBeat = 60 / deck.bpm;
+        const loopDuration = deck.loopBeats * secondsPerBeat;
+        deck.loopEnd = deck.loopStart + loopDuration;
+
+        // Make sure loopEnd doesn't exceed track duration
+        if (deck.loopEnd > deck.duration) {
+            deck.loopEnd = deck.duration;
+        }
+    }
+
+    /**
+     * Set loop length in beats
+     */
+    setLoopBeats(deckId, beats) {
+        const deck = this.decks[deckId];
+
+        // Clamp to valid range (1/32 to 64)
+        beats = Utils.clamp(beats, 0.03125, 64);
+        deck.loopBeats = beats;
+
+        // Recalculate loop end if loop is active
+        if (deck.loopEnabled) {
+            this.calculateLoopEnd(deckId);
+            this.events.emit('loopEnabled', deckId, deck.loopStart, deck.loopEnd);
+        }
+
+        this.events.emit('loopBeatsChanged', deckId, beats);
+    }
+
+    /**
+     * Halve the loop length
+     */
+    halveLoop(deckId) {
+        const deck = this.decks[deckId];
+        const newBeats = deck.loopBeats / 2;
+
+        // Minimum 1/32 beat
+        if (newBeats >= 0.03125) {
+            this.setLoopBeats(deckId, newBeats);
+        }
+    }
+
+    /**
+     * Double the loop length
+     */
+    doubleLoop(deckId) {
+        const deck = this.decks[deckId];
+        const newBeats = deck.loopBeats * 2;
+
+        // Maximum 64 beats
+        if (newBeats <= 64) {
+            this.setLoopBeats(deckId, newBeats);
+        }
     }
 
     /**
@@ -570,6 +721,12 @@ class AudioEngine {
                 const deck = this.decks[deckId];
                 if (deck.isPlaying && !deck.isPaused) {
                     const position = this.getPosition(deckId);
+
+                    // Loop wrap: jump back to start when reaching end
+                    if (deck.loopEnabled && position >= deck.loopEnd) {
+                        deck.audioElement.currentTime = deck.loopStart;
+                    }
+
                     this.events.emit('positionUpdate', deckId, position, deck.duration);
                 }
 

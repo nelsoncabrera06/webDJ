@@ -27,7 +27,21 @@ class MIDIController {
                 volume: 112,   // CC
                 eqHigh: 96,    // CC
                 eqMid: 97,     // CC
-                eqLow: 98      // CC
+                eqLow: 98,     // CC
+                // Hot Cues (Notes)
+                hotCue1: 34,
+                hotCue2: 35,
+                hotCue3: 36,
+                hotCue4: 37,
+                hotCue5: 38,
+                hotCue6: 39,
+                hotCue7: 40,
+                hotCue8: 41,
+                hotCueDel: 42,
+                // Loop (Notes)
+                loopHalve: 23,   // Flecha izquierda <
+                loopDouble: 24,  // Flecha derecha >
+                loopToggle: 25   // ON/OFF
                 // Tempo uses Pitch Bend on CH0
             },
             // Deck B (Channel 1)
@@ -39,7 +53,21 @@ class MIDIController {
                 volume: 113,   // CC
                 eqHigh: 99,    // CC
                 eqMid: 100,    // CC
-                eqLow: 101     // CC
+                eqLow: 101,    // CC
+                // Hot Cues (Notes)
+                hotCue1: 66,
+                hotCue2: 67,
+                hotCue3: 68,
+                hotCue4: 69,
+                hotCue5: 70,
+                hotCue6: 71,
+                hotCue7: 72,
+                hotCue8: 73,
+                hotCueDel: 74,
+                // Loop (Notes)
+                loopHalve: 56,   // Flecha izquierda <
+                loopDouble: 55,  // Flecha derecha >
+                loopToggle: 57   // ON/OFF
                 // Tempo uses Pitch Bend on CH1
             },
             // Global controls
@@ -169,6 +197,34 @@ class MIDIController {
             } else if (note === this.mapping.deckA.sync) {
                 this.audioEngine.sync('A');
             }
+            // Hot Cues 1-8
+            else if (note === this.mapping.deckA.hotCue1) {
+                this.handleHotCue('A', 1);
+            } else if (note === this.mapping.deckA.hotCue2) {
+                this.handleHotCue('A', 2);
+            } else if (note === this.mapping.deckA.hotCue3) {
+                this.handleHotCue('A', 3);
+            } else if (note === this.mapping.deckA.hotCue4) {
+                this.handleHotCue('A', 4);
+            } else if (note === this.mapping.deckA.hotCue5) {
+                this.handleHotCue('A', 5);
+            } else if (note === this.mapping.deckA.hotCue6) {
+                this.handleHotCue('A', 6);
+            } else if (note === this.mapping.deckA.hotCue7) {
+                this.handleHotCue('A', 7);
+            } else if (note === this.mapping.deckA.hotCue8) {
+                this.handleHotCue('A', 8);
+            } else if (note === this.mapping.deckA.hotCueDel) {
+                this.deckA.toggleDeleteMode();
+            }
+            // Loop controls
+            else if (note === this.mapping.deckA.loopHalve) {
+                this.audioEngine.halveLoop('A');
+            } else if (note === this.mapping.deckA.loopDouble) {
+                this.audioEngine.doubleLoop('A');
+            } else if (note === this.mapping.deckA.loopToggle) {
+                this.audioEngine.toggleLoop('A');
+            }
         }
         // Deck B (Channel 1)
         else if (channel === this.mapping.deckB.channel) {
@@ -178,6 +234,34 @@ class MIDIController {
                 this.deckB.cue();
             } else if (note === this.mapping.deckB.sync) {
                 this.audioEngine.sync('B');
+            }
+            // Hot Cues 1-8
+            else if (note === this.mapping.deckB.hotCue1) {
+                this.handleHotCue('B', 1);
+            } else if (note === this.mapping.deckB.hotCue2) {
+                this.handleHotCue('B', 2);
+            } else if (note === this.mapping.deckB.hotCue3) {
+                this.handleHotCue('B', 3);
+            } else if (note === this.mapping.deckB.hotCue4) {
+                this.handleHotCue('B', 4);
+            } else if (note === this.mapping.deckB.hotCue5) {
+                this.handleHotCue('B', 5);
+            } else if (note === this.mapping.deckB.hotCue6) {
+                this.handleHotCue('B', 6);
+            } else if (note === this.mapping.deckB.hotCue7) {
+                this.handleHotCue('B', 7);
+            } else if (note === this.mapping.deckB.hotCue8) {
+                this.handleHotCue('B', 8);
+            } else if (note === this.mapping.deckB.hotCueDel) {
+                this.deckB.toggleDeleteMode();
+            }
+            // Loop controls
+            else if (note === this.mapping.deckB.loopHalve) {
+                this.audioEngine.halveLoop('B');
+            } else if (note === this.mapping.deckB.loopDouble) {
+                this.audioEngine.doubleLoop('B');
+            } else if (note === this.mapping.deckB.loopToggle) {
+                this.audioEngine.toggleLoop('B');
             }
         }
     }
@@ -274,6 +358,22 @@ class MIDIController {
             this.audioEngine.pause(deckId);
         } else {
             this.audioEngine.play(deckId);
+        }
+    }
+
+    /**
+     * Handle hot cue button press
+     */
+    handleHotCue(deckId, index) {
+        const deckController = deckId === 'A' ? this.deckA : this.deckB;
+
+        // Check if we're in delete mode
+        if (deckController.deleteMode) {
+            this.audioEngine.clearHotCue(deckId, index);
+            deckController.exitDeleteMode();
+        } else {
+            // Go to hot cue or set it if not set
+            this.audioEngine.goToHotCue(deckId, index);
         }
     }
 

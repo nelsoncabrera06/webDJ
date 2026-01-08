@@ -391,3 +391,65 @@
     color: var(--bg-primary);
     border-color: var(--accent-red);
 }
+
+/* Loop Controls */
+.loop-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+}
+
+.loop-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.loop-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.loop-btn {
+    width: 36px;
+    height: 28px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all var(--transition-fast);
+}
+
+.loop-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-highlight);
+    color: var(--text-primary);
+}
+
+.loop-toggle {
+    min-width: 44px;
+    font-weight: 700;
+}
+
+/* Loop toggle active state - Deck A color */
+#deckA .loop-toggle.active {
+    background: var(--deck-a-color);
+    color: var(--bg-primary);
+    border-color: var(--deck-a-color);
+}
+
+/* Loop toggle active state - Deck B color */
+#deckB .loop-toggle.active {
+    background: var(--deck-b-color);
+    color: var(--bg-primary);
+    border-color: var(--deck-b-color);
+}

@@ -77,6 +77,7 @@ class WaveformVisualizer {
         this.waveformData = null;
         this.position = 0; // 0-1 normalized position
         this.duration = 0;
+        this.bpm = 0; // BPM for beat markers
         this.hotCues = [null, null, null, null, null, null, null, null]; // Hot cue positions in seconds
 
         // Hot cue colors (8 colors for hot cues 1-8)
@@ -164,6 +165,45 @@ class WaveformVisualizer {
     setHotCues(hotCues) {
         this.hotCues = hotCues;
         this.render();
+    }
+
+    /**
+     * Set BPM for beat markers
+     * @param {number} bpm - Beats per minute
+     */
+    setBPM(bpm) {
+        this.bpm = bpm;
+        this.render();
+    }
+
+    /**
+     * Draw beat markers on the waveform
+     */
+    drawBeatMarkers() {
+        if (!this.bpm || this.bpm <= 0 || !this.duration) return;
+
+        const { ctx, width, height, duration, bpm } = this;
+        const secondsPerBeat = 60 / bpm;
+        const totalBeats = Math.floor(duration / secondsPerBeat);
+
+        for (let beat = 0; beat <= totalBeats; beat++) {
+            const beatTime = beat * secondsPerBeat;
+            const x = (beatTime / duration) * width;
+
+            // Downbeat (cada 4) más visible
+            if (beat % 4 === 0) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 1.5;
+            } else {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 1;
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+            ctx.stroke();
+        }
     }
 
     /**
@@ -269,8 +309,17 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
         });
 
         // Zoom options
-        this.windowSeconds = options.windowSeconds || 8; // Visible window in seconds
+        this.baseWindowSeconds = options.windowSeconds || 8; // Base window in seconds
         this.bpm = options.bpm || 120;
+        this.tempo = 1; // Tempo multiplier (1 = original speed)
+    }
+
+    /**
+     * Get effective window seconds based on tempo
+     * When tempo changes, the window expands/compresses so beats move at constant visual speed
+     */
+    get effectiveWindowSeconds() {
+        return this.baseWindowSeconds * this.tempo;
     }
 
     /**
@@ -282,12 +331,22 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
     }
 
     /**
+     * Set tempo multiplier for beat grid
+     * @param {number} tempo - Tempo multiplier (1 = original, 0.5 = half speed, 2 = double speed)
+     */
+    setTempo(tempo) {
+        this.tempo = tempo;
+        this.render();
+    }
+
+    /**
      * Render zoomed waveform centered on playhead
      */
     render() {
         if (!this.ctx || !this.width) return;
 
-        const { ctx, width, height, waveformData, options, duration, position, windowSeconds, bpm } = this;
+        const { ctx, width, height, waveformData, options, duration, position, bpm } = this;
+        const windowSeconds = this.effectiveWindowSeconds; // Use effective window based on tempo
 
         // Clear canvas
         ctx.clearRect(0, 0, width, height);
@@ -346,7 +405,7 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
      * Draw hot cue markers with labels for zoomed waveform
      */
     drawHotCueMarkersZoomed(ctx, width, height, startTime, endTime) {
-        const pixelsPerSecond = width / this.windowSeconds;
+        const pixelsPerSecond = width / this.effectiveWindowSeconds;
 
         this.hotCues.forEach((position, index) => {
             if (position !== null && position !== undefined) {
@@ -382,27 +441,26 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
      * Draw beat grid lines
      */
     drawBeatGrid(ctx, width, height, startTime, endTime) {
-        const beatsPerSecond = this.bpm / 60;
-        const secondsPerBeat = 60 / this.bpm;
-        const pixelsPerSecond = width / this.windowSeconds;
+        // Use effective BPM (original BPM * tempo)
+        const effectiveBpm = this.bpm * this.tempo;
+        const beatsPerSecond = effectiveBpm / 60;
+        const secondsPerBeat = 60 / effectiveBpm;
+        const pixelsPerSecond = width / this.effectiveWindowSeconds;
 
         // Find first beat in visible window
         const firstBeat = Math.ceil(startTime * beatsPerSecond);
         const lastBeat = Math.floor(endTime * beatsPerSecond);
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.lineWidth = 1;
-
         for (let beat = firstBeat; beat <= lastBeat; beat++) {
             const beatTime = beat * secondsPerBeat;
             const x = (beatTime - startTime) * pixelsPerSecond;
 
-            // Downbeat (every 4 beats)
+            // Downbeat (every 4 beats) - más visible
             if (beat % 4 === 0) {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
                 ctx.lineWidth = 2;
             } else {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
                 ctx.lineWidth = 1;
             }
 

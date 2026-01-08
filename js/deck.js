@@ -73,7 +73,12 @@ class DeckController {
                 document.getElementById(`hotCue${id}7`),
                 document.getElementById(`hotCue${id}8`)
             ],
-            delBtn: document.getElementById(`del${id}`)
+            delBtn: document.getElementById(`del${id}`),
+
+            // Loop controls
+            loopHalveBtn: document.getElementById(`loopHalve${id}`),
+            loopToggleBtn: document.getElementById(`loopToggle${id}`),
+            loopDoubleBtn: document.getElementById(`loopDouble${id}`)
         };
     }
 
@@ -183,6 +188,19 @@ class DeckController {
             });
         }
 
+        // Loop controls
+        this.elements.loopHalveBtn?.addEventListener('click', () => {
+            this.audioEngine.halveLoop(this.deckId);
+        });
+
+        this.elements.loopToggleBtn?.addEventListener('click', () => {
+            this.audioEngine.toggleLoop(this.deckId);
+        });
+
+        this.elements.loopDoubleBtn?.addEventListener('click', () => {
+            this.audioEngine.doubleLoop(this.deckId);
+        });
+
         // Mini waveform click to seek
         this.elements.miniWaveformContainer.addEventListener('click', (e) => {
             if (this.duration <= 0) return;
@@ -278,6 +296,26 @@ class DeckController {
             this.elements.tempoSlider.value = tempo;
             this.elements.tempoValue.textContent = `${tempo.toFixed(2)}x`;
             this.updateBpmDisplay();
+            // Update waveform beat grid with new tempo
+            if (this.zoomedWaveform) {
+                this.zoomedWaveform.setTempo(tempo);
+            }
+        });
+
+        // Loop events
+        this.audioEngine.on('loopEnabled', (deckId) => {
+            if (deckId !== this.deckId) return;
+            this.elements.loopToggleBtn?.classList.add('active');
+        });
+
+        this.audioEngine.on('loopDisabled', (deckId) => {
+            if (deckId !== this.deckId) return;
+            this.elements.loopToggleBtn?.classList.remove('active');
+        });
+
+        this.audioEngine.on('loopBeatsChanged', (deckId, beats) => {
+            if (deckId !== this.deckId) return;
+            this.updateLoopDisplay(beats);
         });
     }
 
@@ -304,8 +342,12 @@ class DeckController {
 
             // Set waveform data
             this.miniWaveform.setData(this.waveformData, this.duration);
+            this.miniWaveform.setBPM(trackInfo.bpm);
             this.zoomedWaveform.setData(this.waveformData, this.duration);
             this.zoomedWaveform.setBPM(trackInfo.bpm);
+            // Set current tempo for beat grid alignment
+            const deck = this.audioEngine.decks[this.deckId];
+            this.zoomedWaveform.setTempo(deck.tempo);
 
             // Reset position indicator
             this.updatePosition(0, this.duration);
@@ -434,6 +476,23 @@ class DeckController {
         if (this.zoomedWaveform) {
             this.zoomedWaveform.setHotCues([...deck.hotCues]);
         }
+    }
+
+    /**
+     * Update loop display with current beat value
+     */
+    updateLoopDisplay(beats) {
+        if (!this.elements.loopToggleBtn) return;
+
+        // Format the display (1/32, 1/16, etc. or whole numbers)
+        let display;
+        if (beats >= 1) {
+            display = beats.toString();
+        } else {
+            // Convert fraction to "1/X" format
+            display = `1/${Math.round(1/beats)}`;
+        }
+        this.elements.loopToggleBtn.textContent = display;
     }
 }
 
