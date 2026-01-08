@@ -12,9 +12,9 @@ class BPMDetector {
     }
 
     /**
-     * Detect BPM from audio buffer
+     * Detect BPM and beat offset from audio buffer
      * @param {AudioBuffer} audioBuffer
-     * @returns {Promise<number>} Detected BPM
+     * @returns {Promise<{bpm: number, beatOffset: number}>} Detected BPM and beat offset
      */
     async detect(audioBuffer) {
         return new Promise((resolve) => {
@@ -27,8 +27,50 @@ class BPMDetector {
             // Detect BPM using autocorrelation
             const bpm = this.autocorrelationBPM(envelope, audioBuffer.sampleRate);
 
-            resolve(bpm);
+            // Detect beat offset (first beat position)
+            const beatOffset = this.detectBeatOffset(channelData, audioBuffer.sampleRate, bpm);
+
+            resolve({
+                bpm: Math.round(bpm * 10) / 10,
+                beatOffset
+            });
         });
+    }
+
+    /**
+     * Detect the beat offset (time of first significant beat)
+     * @param {Float32Array} channelData - Mono audio data
+     * @param {number} sampleRate - Sample rate
+     * @param {number} bpm - Detected BPM
+     * @returns {number} Beat offset in seconds
+     */
+    detectBeatOffset(channelData, sampleRate, bpm) {
+        // Search in first 10 seconds for the first significant peak
+        const searchLength = Math.min(sampleRate * 10, channelData.length);
+
+        // Find maximum peak in search range
+        let maxPeak = 0;
+        for (let i = 0; i < searchLength; i++) {
+            const absValue = Math.abs(channelData[i]);
+            if (absValue > maxPeak) maxPeak = absValue;
+        }
+
+        // Find first peak that exceeds 60% of max (threshold for first beat)
+        const threshold = maxPeak * 0.6;
+        for (let i = 0; i < searchLength; i++) {
+            if (Math.abs(channelData[i]) >= threshold) {
+                // Convert sample index to seconds
+                const timeInSeconds = i / sampleRate;
+
+                // Return the offset within one beat cycle
+                const secondsPerBeat = 60 / bpm;
+                const beatOffset = timeInSeconds % secondsPerBeat;
+
+                return beatOffset;
+            }
+        }
+
+        return 0; // Default: beat at t=0
     }
 
     /**

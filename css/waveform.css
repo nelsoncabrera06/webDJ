@@ -7,7 +7,7 @@
 
 .zoomed-waveform-container {
     position: relative;
-    height: 120px;
+    height: 240px;
     background: var(--bg-tertiary);
     border-radius: var(--radius-md);
     overflow: hidden;

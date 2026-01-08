@@ -345,6 +345,7 @@ class DeckController {
             this.miniWaveform.setBPM(trackInfo.bpm);
             this.zoomedWaveform.setData(this.waveformData, this.duration);
             this.zoomedWaveform.setBPM(trackInfo.bpm);
+            this.zoomedWaveform.setBeatOffset(trackInfo.beatOffset);
             // Set current tempo for beat grid alignment
             const deck = this.audioEngine.decks[this.deckId];
             this.zoomedWaveform.setTempo(deck.tempo);

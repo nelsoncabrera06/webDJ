@@ -117,14 +117,14 @@ class WaveformVisualizer {
             this.resize();
             this.render();
         });
-        resizeObserver.observe(this.canvas.parentElement);
+        resizeObserver.observe(this.canvas);
     }
 
     /**
-     * Resize canvas to match container
+     * Resize canvas to match its own size
      */
     resize() {
-        const rect = this.canvas.parentElement.getBoundingClientRect();
+        const rect = this.canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
 
         this.canvas.width = rect.width * dpr;
@@ -312,6 +312,7 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
         this.baseWindowSeconds = options.windowSeconds || 8; // Base window in seconds
         this.bpm = options.bpm || 120;
         this.tempo = 1; // Tempo multiplier (1 = original speed)
+        this.beatOffset = 0; // Time of first beat in seconds
     }
 
     /**
@@ -336,6 +337,15 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
      */
     setTempo(tempo) {
         this.tempo = tempo;
+        this.render();
+    }
+
+    /**
+     * Set beat offset (time of first beat)
+     * @param {number} offset - Beat offset in seconds
+     */
+    setBeatOffset(offset) {
+        this.beatOffset = offset;
         this.render();
     }
 
@@ -443,16 +453,19 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
     drawBeatGrid(ctx, width, height, startTime, endTime) {
         // Use effective BPM (original BPM * tempo)
         const effectiveBpm = this.bpm * this.tempo;
-        const beatsPerSecond = effectiveBpm / 60;
         const secondsPerBeat = 60 / effectiveBpm;
         const pixelsPerSecond = width / this.effectiveWindowSeconds;
 
-        // Find first beat in visible window
-        const firstBeat = Math.ceil(startTime * beatsPerSecond);
-        const lastBeat = Math.floor(endTime * beatsPerSecond);
+        // Calculate beat offset adjusted for tempo
+        const adjustedBeatOffset = this.beatOffset * this.tempo;
+
+        // Find first and last beat in visible window, considering the beat offset
+        const firstBeat = Math.ceil((startTime - adjustedBeatOffset) / secondsPerBeat);
+        const lastBeat = Math.floor((endTime - adjustedBeatOffset) / secondsPerBeat);
 
         for (let beat = firstBeat; beat <= lastBeat; beat++) {
-            const beatTime = beat * secondsPerBeat;
+            // Beat time = offset + (beat number * seconds per beat)
+            const beatTime = adjustedBeatOffset + (beat * secondsPerBeat);
             const x = (beatTime - startTime) * pixelsPerSecond;
 
             // Downbeat (every 4 beats) - más visible

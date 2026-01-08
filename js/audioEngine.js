@@ -80,7 +80,10 @@ class AudioEngine {
             loopEnabled: false,
             loopStart: 0,        // En segundos
             loopEnd: 0,          // En segundos
-            loopBeats: 4         // Beats (puede ser fracción: 0.03125 = 1/32)
+            loopBeats: 4,        // Beats (puede ser fracción: 0.03125 = 1/32)
+
+            // Beat grid offset (time of first beat in seconds)
+            beatOffset: 0
         };
     }
 
@@ -261,9 +264,11 @@ class AudioEngine {
         const arrayBuffer = await file.arrayBuffer();
         deck.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
 
-        // Detect BPM
+        // Detect BPM and beat offset
         const bpmDetector = new BPMDetector();
-        deck.bpm = await bpmDetector.detect(deck.audioBuffer);
+        const bpmResult = await bpmDetector.detect(deck.audioBuffer);
+        deck.bpm = bpmResult.bpm;
+        deck.beatOffset = bpmResult.beatOffset;
 
         // Generate waveform
         const waveformGenerator = new WaveformGenerator();
@@ -274,6 +279,7 @@ class AudioEngine {
             name: deck.trackName,
             duration: deck.duration,
             bpm: deck.bpm,
+            beatOffset: deck.beatOffset,
             waveformData
         });
 
@@ -281,6 +287,7 @@ class AudioEngine {
             name: deck.trackName,
             duration: deck.duration,
             bpm: deck.bpm,
+            beatOffset: deck.beatOffset,
             waveformData
         };
     }
