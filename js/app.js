@@ -10,6 +10,7 @@ class DJMixApp {
         this.deckB = null;
         this.mixer = null;
         this.midiController = null;
+        this.autoMixer = null;
 
         this.isInitialized = false;
     }
@@ -30,6 +31,9 @@ class DJMixApp {
         this.deckA = new DeckController('A', this.audioEngine);
         this.deckB = new DeckController('B', this.audioEngine);
         this.mixer = new MixerController(this.audioEngine);
+
+        // Create auto mixer
+        this.autoMixer = new AutoMixer(this.audioEngine);
 
         // Setup keyboard shortcuts
         this.setupKeyboardShortcuts();
@@ -309,11 +313,17 @@ class DJMixApp {
         const settingsModal = document.getElementById('settingsModal');
         const closeSettings = document.getElementById('closeSettings');
         const pitchModeSelect = document.getElementById('pitchMode');
+        const autoMixCheckbox = document.getElementById('autoMixEnabled');
 
         // Load saved settings
         const savedPitchMode = localStorage.getItem('pitchMode') || 'linked';
         pitchModeSelect.value = savedPitchMode;
         this.applyPitchMode(savedPitchMode);
+
+        // Load auto mix setting
+        const savedAutoMix = localStorage.getItem('autoMixEnabled') === 'true';
+        autoMixCheckbox.checked = savedAutoMix;
+        this.autoMixer.setEnabled(savedAutoMix);
 
         // Open modal
         settingsBtn.addEventListener('click', () => {
@@ -344,6 +354,13 @@ class DJMixApp {
             const mode = e.target.value;
             localStorage.setItem('pitchMode', mode);
             this.applyPitchMode(mode);
+        });
+
+        // Auto mix change
+        autoMixCheckbox.addEventListener('change', (e) => {
+            const enabled = e.target.checked;
+            localStorage.setItem('autoMixEnabled', enabled);
+            this.autoMixer.setEnabled(enabled);
         });
     }
 
