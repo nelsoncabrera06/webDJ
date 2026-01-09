@@ -820,18 +820,25 @@ class BrowserResizer {
     constructor() {
         this.browserSection = document.getElementById('browserSection');
         this.resizeHandle = document.getElementById('browserResizeHandle');
+        this.collapseBtn = document.getElementById('browserCollapseBtn');
 
         if (!this.browserSection || !this.resizeHandle) return;
 
         this.isResizing = false;
         this.startY = 0;
         this.startHeight = 0;
-        this.minHeight = 150;
+        this.minHeight = 100;
         this.maxHeight = window.innerHeight * 0.7;
+        this.isCollapsed = false;
 
-        // Load saved height
+        // Load saved state
         const savedHeight = localStorage.getItem('browserSectionHeight');
-        if (savedHeight) {
+        const savedCollapsed = localStorage.getItem('browserSectionCollapsed');
+
+        if (savedCollapsed === 'true') {
+            this.isCollapsed = true;
+            this.browserSection.classList.add('collapsed');
+        } else if (savedHeight) {
             this.browserSection.style.height = `${savedHeight}px`;
         }
 
@@ -848,13 +855,45 @@ class BrowserResizer {
         document.addEventListener('touchmove', this.resizeTouch.bind(this));
         document.addEventListener('touchend', this.stopResize.bind(this));
 
+        // Collapse button
+        if (this.collapseBtn) {
+            this.collapseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleCollapse();
+            });
+        }
+
         // Update max height on window resize
         window.addEventListener('resize', () => {
             this.maxHeight = window.innerHeight * 0.7;
         });
     }
 
+    toggleCollapse() {
+        this.isCollapsed = !this.isCollapsed;
+
+        if (this.isCollapsed) {
+            this.browserSection.classList.add('collapsed');
+        } else {
+            this.browserSection.classList.remove('collapsed');
+            // Restore saved height
+            const savedHeight = localStorage.getItem('browserSectionHeight');
+            if (savedHeight) {
+                this.browserSection.style.height = `${savedHeight}px`;
+            }
+        }
+
+        // Save collapsed state
+        localStorage.setItem('browserSectionCollapsed', this.isCollapsed);
+    }
+
     startResize(e) {
+        // Don't resize when collapsed
+        if (this.isCollapsed) return;
+
+        // Don't start resize if clicking the collapse button
+        if (e.target.closest('.browser-collapse-btn')) return;
+
         e.preventDefault();
         this.isResizing = true;
         this.startY = e.clientY;
@@ -864,6 +903,9 @@ class BrowserResizer {
     }
 
     startResizeTouch(e) {
+        // Don't resize when collapsed
+        if (this.isCollapsed) return;
+
         if (e.touches.length === 1) {
             this.isResizing = true;
             this.startY = e.touches[0].clientY;

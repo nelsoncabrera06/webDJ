@@ -7,7 +7,7 @@
 
 .zoomed-waveform-container {
     position: relative;
-    height: 240px;
+    height: 144px;
     background: var(--bg-tertiary);
     border-radius: var(--radius-md);
     overflow: hidden;
@@ -68,8 +68,8 @@
 /* Mini Waveform */
 .mini-waveform-container {
     position: relative;
-    height: 100px;
-    min-height: 100px;
+    height: 60px;
+    min-height: 60px;
     width: 100%;
     min-width: 0;
     flex-shrink: 0;

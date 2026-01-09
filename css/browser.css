@@ -5,8 +5,8 @@
     display: flex;
     flex-direction: column;
     gap: 0;
-    height: 400px;
-    min-height: 150px;
+    height: 200px;
+    min-height: 100px;
     max-height: 70vh;
     flex-shrink: 0;
     position: relative;
@@ -14,7 +14,7 @@
 
 /* Resize Handle */
 .browser-resize-handle {
-    height: 6px;
+    height: 12px;
     background: var(--bg-tertiary);
     cursor: ns-resize;
     display: flex;
@@ -23,22 +23,81 @@
     border-top: 1px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
     transition: background var(--transition-fast);
+    position: relative;
 }
 
 .browser-resize-handle:hover {
     background: var(--border-highlight);
 }
 
-.browser-resize-handle::after {
-    content: '';
-    width: 40px;
-    height: 3px;
-    background: var(--border-color);
+/* Collapse Button */
+.browser-collapse-btn {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 2px;
+    color: var(--text-muted);
+    font-size: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+    z-index: 1;
 }
 
-.browser-resize-handle:hover::after {
-    background: var(--deck-a-color);
+.browser-collapse-btn:hover {
+    background: var(--border-highlight);
+    color: var(--text-primary);
+    border-color: var(--deck-a-color);
+}
+
+.browser-collapse-btn .collapse-icon {
+    transition: transform var(--transition-normal);
+}
+
+/* Collapsed Header (hidden by default) */
+.browser-collapsed-header {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    padding: 2px var(--spacing-md);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.browser-collapsed-header .collapsed-separator {
+    color: var(--border-color);
+}
+
+/* Collapsed State */
+.browser-section.collapsed {
+    height: auto !important;
+    min-height: auto !important;
+}
+
+.browser-section.collapsed .browser-resize-handle {
+    cursor: pointer;
+}
+
+.browser-section.collapsed .browser-collapse-btn .collapse-icon {
+    transform: rotate(180deg);
+}
+
+.browser-section.collapsed .browser-collapsed-header {
+    display: flex;
+}
+
+.browser-section.collapsed .browser-content {
+    display: none;
 }
 
 /* Browser Content (folders + playlist) */

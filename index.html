@@ -30,7 +30,9 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Zoomed Waveforms Display -->
+            <!-- Scrollable content wrapper for waveforms + decks -->
+            <div class="scrollable-content">
+                <!-- Zoomed Waveforms Display -->
             <section class="waveforms-section">
                 <div class="zoomed-waveform-container">
                     <canvas id="zoomedWaveformA" class="zoomed-waveform deck-a"></canvas>
@@ -423,11 +425,23 @@
                     </div>
                 </div>
             </section>
+            </div><!-- End scrollable-content -->
 
             <!-- Browser Section -->
             <section class="browser-section" id="browserSection">
-                <!-- Resize Handle -->
-                <div class="browser-resize-handle" id="browserResizeHandle"></div>
+                <!-- Resize Handle with Collapse Button -->
+                <div class="browser-resize-handle" id="browserResizeHandle">
+                    <button class="browser-collapse-btn" id="browserCollapseBtn" title="Collapse/Expand Browser">
+                        <span class="collapse-icon">▼</span>
+                    </button>
+                </div>
+
+                <!-- Collapsed Header (visible when collapsed) -->
+                <div class="browser-collapsed-header" id="browserCollapsedHeader">
+                    <span>BROWSER</span>
+                    <span class="collapsed-separator">|</span>
+                    <span>PLAYLIST</span>
+                </div>
 
                 <!-- Browser Content -->
                 <div class="browser-content">
