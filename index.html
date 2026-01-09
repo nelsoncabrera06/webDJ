@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/mixer.css">
     <link rel="stylesheet" href="css/waveform.css">
     <link rel="stylesheet" href="css/platter.css">
+    <link rel="stylesheet" href="css/browser.css">
 </head>
 <body>
     <div class="app-container">
@@ -59,7 +60,7 @@
                         </div>
                     </div>
 
-                    <!-- Load Button / Drop Zone -->
+                    <!-- Load Button / Drop Zone (full width) -->
                     <div class="load-zone" id="loadZoneA">
                         <input type="file" id="fileInputA" accept="audio/*" hidden>
                         <button class="load-btn" onclick="document.getElementById('fileInputA').click()">
@@ -68,81 +69,119 @@
                         <span class="drop-hint">or drag & drop</span>
                     </div>
 
-                    <!-- Platter -->
-                    <div class="platter-container">
-                        <div class="platter" id="platterA">
-                            <div class="vinyl-disc">
-                                <div class="vinyl-marker"></div>
-                                <div class="vinyl-label">
-                                    <div class="vinyl-hole"></div>
+                    <!-- Deck A Controls Column -->
+                    <div class="deck-controls">
+                        <!-- FX Section -->
+                        <div class="fx-section">
+                            <span class="section-label">FX</span>
+                            <div class="fx-controls">
+                                <div class="fx-knob-group">
+                                    <div class="knob fx-knob" id="fxFilterA" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="fx-label">FILTER</span>
+                                </div>
+                                <div class="fx-knob-group">
+                                    <div class="knob fx-knob" id="fxFlangerA" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="fx-label">FLANGER</span>
+                                </div>
+                                <div class="fx-knob-group">
+                                    <div class="knob fx-knob" id="fxEchoA" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="fx-label">ECHO</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Loop Controls -->
-                    <div class="loop-controls">
-                        <span class="loop-label">LOOP</span>
-                        <div class="loop-buttons">
-                            <button class="loop-btn loop-halve" id="loopHalveA" title="Halve loop">&lt;</button>
-                            <button class="loop-btn loop-toggle" id="loopToggleA" title="Toggle loop">4</button>
-                            <button class="loop-btn loop-double" id="loopDoubleA" title="Double loop">&gt;</button>
-                        </div>
-                    </div>
-
-                    <!-- Tempo & Pitch Controls -->
-                    <div class="tempo-pitch-section">
-                        <div class="control-group">
-                            <label>TEMPO</label>
-                            <div class="slider-with-reset">
-                                <input type="range" id="tempoA" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
-                                <button class="reset-tempo-btn" id="resetTempoA" title="Reset tempo">&#9664;</button>
-                            </div>
-                            <span class="control-value" id="tempoValueA">1.00x</span>
-                        </div>
-                        <div class="control-group pitch-control">
-                            <label>PITCH</label>
-                            <input type="range" id="pitchA" class="vertical-slider" min="-12" max="12" step="0.1" value="0" orient="vertical">
-                            <span class="control-value" id="pitchValueA">0 st</span>
-                        </div>
-                    </div>
-
-                    <!-- Transport Controls -->
-                    <div class="transport-controls">
-                        <button class="transport-btn play-btn" id="playA">
-                            <span class="icon">▶</span>
-                        </button>
-                        <button class="transport-btn pause-btn" id="pauseA">
-                            <span class="icon">⏸</span>
-                        </button>
-                        <button class="transport-btn stop-btn" id="stopA">
-                            <span class="icon">⏹</span>
-                        </button>
-                        <button class="transport-btn cue-btn" id="cueA">
-                            CUE
-                        </button>
-                        <button class="transport-btn sync-btn" id="syncA">
-                            SYNC
-                        </button>
-                    </div>
-
-                    <!-- Hot Cues -->
-                    <div class="hot-cues-container">
-                        <div class="hot-cues-grid">
-                            <div class="hot-cues-row">
-                                <button class="hot-cue-btn" id="hotCueA1">1</button>
-                                <button class="hot-cue-btn" id="hotCueA2">2</button>
-                                <button class="hot-cue-btn" id="hotCueA3">3</button>
-                                <button class="hot-cue-btn" id="hotCueA4">4</button>
-                            </div>
-                            <div class="hot-cues-row">
-                                <button class="hot-cue-btn" id="hotCueA5">5</button>
-                                <button class="hot-cue-btn" id="hotCueA6">6</button>
-                                <button class="hot-cue-btn" id="hotCueA7">7</button>
-                                <button class="hot-cue-btn" id="hotCueA8">8</button>
+                        <!-- Loop Controls -->
+                        <div class="loop-controls">
+                            <span class="section-label">LOOP</span>
+                            <div class="loop-buttons">
+                                <button class="loop-btn loop-halve" id="loopHalveA" title="Halve loop">&lt;</button>
+                                <button class="loop-btn loop-toggle" id="loopToggleA" title="Toggle loop">4</button>
+                                <button class="loop-btn loop-double" id="loopDoubleA" title="Double loop">&gt;</button>
                             </div>
                         </div>
-                        <button class="del-btn" id="delA">DEL</button>
+
+                        <!-- Pads Section -->
+                        <div class="pads-section">
+                            <span class="section-label">PADS</span>
+                            <div class="pads-grid">
+                                <button class="pad-btn" id="padA1">1</button>
+                                <button class="pad-btn" id="padA2">2</button>
+                                <button class="pad-btn" id="padA3">3</button>
+                                <button class="pad-btn" id="padA4">4</button>
+                                <button class="pad-btn" id="padA5">5</button>
+                                <button class="pad-btn" id="padA6">6</button>
+                                <button class="pad-btn" id="padA7">7</button>
+                                <button class="pad-btn" id="padA8">8</button>
+                            </div>
+                        </div>
+
+                        <!-- Hot Cues -->
+                        <div class="hot-cues-container">
+                            <span class="section-label">HOT CUE</span>
+                            <div class="hot-cues-content">
+                                <div class="hot-cues-grid">
+                                    <div class="hot-cues-row">
+                                        <button class="hot-cue-btn" id="hotCueA1">1</button>
+                                        <button class="hot-cue-btn" id="hotCueA2">2</button>
+                                        <button class="hot-cue-btn" id="hotCueA3">3</button>
+                                        <button class="hot-cue-btn" id="hotCueA4">4</button>
+                                    </div>
+                                    <div class="hot-cues-row">
+                                        <button class="hot-cue-btn" id="hotCueA5">5</button>
+                                        <button class="hot-cue-btn" id="hotCueA6">6</button>
+                                        <button class="hot-cue-btn" id="hotCueA7">7</button>
+                                        <button class="hot-cue-btn" id="hotCueA8">8</button>
+                                    </div>
+                                </div>
+                                <button class="del-btn" id="delA">DEL</button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Deck A Platter Column -->
+                    <div class="deck-platter">
+                        <!-- Platter with Tempo -->
+                        <div class="platter-tempo-row">
+                            <!-- Tempo (left of platter, away from mixer) -->
+                            <div class="platter-tempo">
+                                <label>TEMPO</label>
+                                <div class="tempo-slider-container">
+                                    <input type="range" id="tempoA" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
+                                    <button class="reset-tempo-btn" id="resetTempoA" title="Reset tempo">&#9664;</button>
+                                </div>
+                                <span class="control-value" id="tempoValueA">1.00x</span>
+                            </div>
+                            <!-- Platter -->
+                            <div class="platter-container">
+                                <div class="platter" id="platterA">
+                                    <div class="vinyl-disc">
+                                        <div class="vinyl-marker"></div>
+                                        <div class="vinyl-label">
+                                            <div class="vinyl-hole"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Transport Controls (below platter) -->
+                        <div class="platter-transport">
+                            <button class="transport-btn play-btn" id="playA">
+                                <span class="icon">▶</span>
+                            </button>
+                            <button class="transport-btn pause-btn" id="pauseA">
+                                <span class="icon">⏸</span>
+                            </button>
+                            <button class="transport-btn stop-btn" id="stopA">
+                                <span class="icon">⏹</span>
+                            </button>
+                            <button class="transport-btn cue-btn" id="cueA">
+                                CUE
+                            </button>
+                            <button class="transport-btn sync-btn" id="syncA">
+                                SYNC
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -152,8 +191,19 @@
                         <span>MIXER</span>
                     </div>
 
-                    <!-- EQ Section -->
-                    <div class="eq-section">
+                    <!-- Main Mixer Controls -->
+                    <div class="mixer-controls">
+                        <!-- Deck A: Volume + Meter -->
+                        <div class="channel-strip deck-a-strip">
+                            <label class="channel-label">A</label>
+                            <div class="channel-controls">
+                                <input type="range" id="volumeA" class="volume-fader" min="0" max="1" step="0.01" value="1" orient="vertical">
+                                <div class="volume-meter" id="meterA">
+                                    <div class="meter-fill"></div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Deck A EQ -->
                         <div class="eq-column" id="eqA">
                             <div class="eq-knob-container">
@@ -191,22 +241,15 @@
                                 <span class="knob-value">0</span>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Volume Faders -->
-                    <div class="volume-section">
-                        <div class="volume-fader-container">
-                            <label>A</label>
-                            <input type="range" id="volumeA" class="volume-fader" min="0" max="1" step="0.01" value="1" orient="vertical">
-                            <div class="volume-meter" id="meterA">
-                                <div class="meter-fill"></div>
-                            </div>
-                        </div>
-                        <div class="volume-fader-container">
-                            <label>B</label>
-                            <input type="range" id="volumeB" class="volume-fader" min="0" max="1" step="0.01" value="1" orient="vertical">
-                            <div class="volume-meter" id="meterB">
-                                <div class="meter-fill"></div>
+                        <!-- Deck B: Meter + Volume -->
+                        <div class="channel-strip deck-b-strip">
+                            <label class="channel-label">B</label>
+                            <div class="channel-controls">
+                                <div class="volume-meter" id="meterB">
+                                    <div class="meter-fill"></div>
+                                </div>
+                                <input type="range" id="volumeB" class="volume-fader" min="0" max="1" step="0.01" value="1" orient="vertical">
                             </div>
                         </div>
                     </div>
@@ -241,7 +284,7 @@
                         </div>
                     </div>
 
-                    <!-- Load Button / Drop Zone -->
+                    <!-- Load Button / Drop Zone (full width) -->
                     <div class="load-zone" id="loadZoneB">
                         <input type="file" id="fileInputB" accept="audio/*" hidden>
                         <button class="load-btn" onclick="document.getElementById('fileInputB').click()">
@@ -250,83 +293,172 @@
                         <span class="drop-hint">or drag & drop</span>
                     </div>
 
-                    <!-- Platter -->
-                    <div class="platter-container">
-                        <div class="platter" id="platterB">
-                            <div class="vinyl-disc">
-                                <div class="vinyl-marker"></div>
-                                <div class="vinyl-label">
-                                    <div class="vinyl-hole"></div>
+                    <!-- Deck B Platter Column (on left, near mixer) -->
+                    <div class="deck-platter">
+                        <!-- Platter with Tempo -->
+                        <div class="platter-tempo-row">
+                            <!-- Tempo (right of platter, away from mixer - CSS handles direction) -->
+                            <div class="platter-tempo">
+                                <label>TEMPO</label>
+                                <div class="tempo-slider-container">
+                                    <button class="reset-tempo-btn" id="resetTempoB" title="Reset tempo">&#9654;</button>
+                                    <input type="range" id="tempoB" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
+                                </div>
+                                <span class="control-value" id="tempoValueB">1.00x</span>
+                            </div>
+                            <!-- Platter -->
+                            <div class="platter-container">
+                                <div class="platter" id="platterB">
+                                    <div class="vinyl-disc">
+                                        <div class="vinyl-marker"></div>
+                                        <div class="vinyl-label">
+                                            <div class="vinyl-hole"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Loop Controls -->
-                    <div class="loop-controls">
-                        <span class="loop-label">LOOP</span>
-                        <div class="loop-buttons">
-                            <button class="loop-btn loop-halve" id="loopHalveB" title="Halve loop">&lt;</button>
-                            <button class="loop-btn loop-toggle" id="loopToggleB" title="Toggle loop">4</button>
-                            <button class="loop-btn loop-double" id="loopDoubleB" title="Double loop">&gt;</button>
+                        <!-- Transport Controls (below platter) -->
+                        <div class="platter-transport">
+                            <button class="transport-btn play-btn" id="playB">
+                                <span class="icon">▶</span>
+                            </button>
+                            <button class="transport-btn pause-btn" id="pauseB">
+                                <span class="icon">⏸</span>
+                            </button>
+                            <button class="transport-btn stop-btn" id="stopB">
+                                <span class="icon">⏹</span>
+                            </button>
+                            <button class="transport-btn cue-btn" id="cueB">
+                                CUE
+                            </button>
+                            <button class="transport-btn sync-btn" id="syncB">
+                                SYNC
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Tempo & Pitch Controls -->
-                    <div class="tempo-pitch-section">
-                        <div class="control-group">
-                            <label>TEMPO</label>
-                            <div class="slider-with-reset">
-                                <button class="reset-tempo-btn" id="resetTempoB" title="Reset tempo">&#9654;</button>
-                                <input type="range" id="tempoB" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
-                            </div>
-                            <span class="control-value" id="tempoValueB">1.00x</span>
-                        </div>
-                        <div class="control-group pitch-control">
-                            <label>PITCH</label>
-                            <input type="range" id="pitchB" class="vertical-slider" min="-12" max="12" step="0.1" value="0" orient="vertical">
-                            <span class="control-value" id="pitchValueB">0 st</span>
-                        </div>
-                    </div>
-
-                    <!-- Transport Controls -->
-                    <div class="transport-controls">
-                        <button class="transport-btn play-btn" id="playB">
-                            <span class="icon">▶</span>
-                        </button>
-                        <button class="transport-btn pause-btn" id="pauseB">
-                            <span class="icon">⏸</span>
-                        </button>
-                        <button class="transport-btn stop-btn" id="stopB">
-                            <span class="icon">⏹</span>
-                        </button>
-                        <button class="transport-btn cue-btn" id="cueB">
-                            CUE
-                        </button>
-                        <button class="transport-btn sync-btn" id="syncB">
-                            SYNC
-                        </button>
-                    </div>
-
-                    <!-- Hot Cues -->
-                    <div class="hot-cues-container">
-                        <div class="hot-cues-grid">
-                            <div class="hot-cues-row">
-                                <button class="hot-cue-btn" id="hotCueB1">1</button>
-                                <button class="hot-cue-btn" id="hotCueB2">2</button>
-                                <button class="hot-cue-btn" id="hotCueB3">3</button>
-                                <button class="hot-cue-btn" id="hotCueB4">4</button>
-                            </div>
-                            <div class="hot-cues-row">
-                                <button class="hot-cue-btn" id="hotCueB5">5</button>
-                                <button class="hot-cue-btn" id="hotCueB6">6</button>
-                                <button class="hot-cue-btn" id="hotCueB7">7</button>
-                                <button class="hot-cue-btn" id="hotCueB8">8</button>
+                    <!-- Deck B Controls Column -->
+                    <div class="deck-controls">
+                        <!-- FX Section -->
+                        <div class="fx-section">
+                            <span class="section-label">FX</span>
+                            <div class="fx-controls">
+                                <div class="fx-knob-group">
+                                    <div class="knob fx-knob" id="fxFilterB" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="fx-label">FILTER</span>
+                                </div>
+                                <div class="fx-knob-group">
+                                    <div class="knob fx-knob" id="fxFlangerB" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="fx-label">FLANGER</span>
+                                </div>
+                                <div class="fx-knob-group">
+                                    <div class="knob fx-knob" id="fxEchoB" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="fx-label">ECHO</span>
+                                </div>
                             </div>
                         </div>
-                        <button class="del-btn" id="delB">DEL</button>
+
+                        <!-- Loop Controls -->
+                        <div class="loop-controls">
+                            <span class="section-label">LOOP</span>
+                            <div class="loop-buttons">
+                                <button class="loop-btn loop-halve" id="loopHalveB" title="Halve loop">&lt;</button>
+                                <button class="loop-btn loop-toggle" id="loopToggleB" title="Toggle loop">4</button>
+                                <button class="loop-btn loop-double" id="loopDoubleB" title="Double loop">&gt;</button>
+                            </div>
+                        </div>
+
+                        <!-- Pads Section -->
+                        <div class="pads-section">
+                            <span class="section-label">PADS</span>
+                            <div class="pads-grid">
+                                <button class="pad-btn" id="padB1">1</button>
+                                <button class="pad-btn" id="padB2">2</button>
+                                <button class="pad-btn" id="padB3">3</button>
+                                <button class="pad-btn" id="padB4">4</button>
+                                <button class="pad-btn" id="padB5">5</button>
+                                <button class="pad-btn" id="padB6">6</button>
+                                <button class="pad-btn" id="padB7">7</button>
+                                <button class="pad-btn" id="padB8">8</button>
+                            </div>
+                        </div>
+
+                        <!-- Hot Cues -->
+                        <div class="hot-cues-container">
+                            <span class="section-label">HOT CUE</span>
+                            <div class="hot-cues-content">
+                                <div class="hot-cues-grid">
+                                    <div class="hot-cues-row">
+                                        <button class="hot-cue-btn" id="hotCueB1">1</button>
+                                        <button class="hot-cue-btn" id="hotCueB2">2</button>
+                                        <button class="hot-cue-btn" id="hotCueB3">3</button>
+                                        <button class="hot-cue-btn" id="hotCueB4">4</button>
+                                    </div>
+                                    <div class="hot-cues-row">
+                                        <button class="hot-cue-btn" id="hotCueB5">5</button>
+                                        <button class="hot-cue-btn" id="hotCueB6">6</button>
+                                        <button class="hot-cue-btn" id="hotCueB7">7</button>
+                                        <button class="hot-cue-btn" id="hotCueB8">8</button>
+                                    </div>
+                                </div>
+                                <button class="del-btn" id="delB">DEL</button>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
+            </section>
+
+            <!-- Browser Section -->
+            <section class="browser-section" id="browserSection">
+                <!-- Resize Handle -->
+                <div class="browser-resize-handle" id="browserResizeHandle"></div>
+
+                <!-- Browser Content -->
+                <div class="browser-content">
+                <!-- Folder Browser -->
+                <div class="folder-browser">
+                    <div class="browser-header">
+                        <span class="browser-title">BROWSER</span>
+                        <button class="browser-btn" id="openFolderBtn" title="Open Folder">
+                            <span>+ Add Folder</span>
+                        </button>
+                    </div>
+                    <div class="folder-tree" id="folderTree">
+                        <div class="folder-placeholder">
+                            <span>Click "Add Folder" to browse music</span>
+                        </div>
+                    </div>
+                    <div class="file-list" id="fileList">
+                        <div class="file-list-header">
+                            <span class="col-name">Name</span>
+                            <span class="col-duration">Duration</span>
+                        </div>
+                        <div class="file-list-content" id="fileListContent">
+                            <div class="file-placeholder">
+                                <span>Select a folder to view files</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playlist -->
+                <div class="playlist-panel">
+                    <div class="browser-header">
+                        <span class="browser-title">PLAYLIST</span>
+                        <div class="playlist-controls">
+                            <span class="playlist-count" id="playlistCount">0 tracks</span>
+                            <button class="browser-btn small" id="clearPlaylistBtn" title="Clear Playlist">Clear</button>
+                        </div>
+                    </div>
+                    <div class="playlist-content" id="playlistContent">
+                        <div class="playlist-placeholder">
+                            <span>Drag tracks here to add to playlist</span>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- /browser-content -->
             </section>
         </main>
 
@@ -391,6 +523,7 @@
     <script src="js/midi.js"></script>
     <script src="js/platter.js"></script>
     <script src="js/autoMixer.js"></script>
+    <script src="js/browser.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

@@ -14,13 +14,157 @@
     background: var(--bg-card);
     border-radius: var(--radius-lg);
     padding: var(--spacing-md);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto auto 1fr;
+    gap: var(--spacing-sm);
     border: 1px solid var(--border-color);
     overflow: hidden;
 }
 
+/* Deck A: Controls left, Platter right */
+#deckA {
+    grid-template-columns: 1fr auto;
+}
+
+/* Deck B: Platter left, Controls right */
+#deckB {
+    grid-template-columns: auto 1fr;
+}
+
+/* Elements that span full width */
+.deck-header,
+.mini-waveform-container,
+.load-zone {
+    grid-column: 1 / -1;
+}
+
+/* Controls column container */
+.deck-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* Deck A: controls column near platter, items centered */
+#deckA .deck-controls {
+    align-items: center;
+    margin-left: auto;
+}
+
+/* Deck B: controls column near platter, items centered */
+#deckB .deck-controls {
+    align-items: center;
+    margin-right: auto;
+}
+
+/* Platter column container */
+.deck-platter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--spacing-sm);
+}
+
+/* Space between platter and mixer */
+#deckA .deck-platter {
+    padding-right: var(--spacing-lg);
+}
+
+#deckB .deck-platter {
+    padding-left: var(--spacing-lg);
+}
+
+/* Platter with tempo row */
+.platter-tempo-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+/* Deck A: tempo on left of platter (away from mixer) */
+#deckA .platter-tempo-row {
+    flex-direction: row;
+}
+
+/* Deck B: tempo on right of platter (away from mixer) */
+#deckB .platter-tempo-row {
+    flex-direction: row-reverse;
+}
+
+/* Tempo control when next to platter */
+.platter-tempo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.platter-tempo label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+}
+
+.platter-tempo .tempo-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.platter-tempo .vertical-slider {
+    height: 200px;
+}
+
+.platter-tempo .control-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Transport controls below platter */
+.platter-transport {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) 0;
+}
+
+/* Same margin as platter to mixer */
+#deckA .platter-transport {
+    padding-right: var(--spacing-lg);
+}
+
+#deckB .platter-transport {
+    padding-left: var(--spacing-lg);
+}
+
+/* Deck A: platter on right */
+#deckA .deck-controls {
+    grid-column: 1;
+    grid-row: 4;
+}
+
+#deckA .deck-platter {
+    grid-column: 2;
+    grid-row: 4;
+}
+
+/* Deck B: platter on left */
+#deckB .deck-platter {
+    grid-column: 1;
+    grid-row: 4;
+}
+
+#deckB .deck-controls {
+    grid-column: 2;
+    grid-row: 4;
+}
+
+/* Deck border colors */
 #deckA {
     border-color: var(--deck-a-glow);
     box-shadow: inset 0 0 20px var(--deck-a-glow);
@@ -79,8 +223,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
     background: var(--bg-secondary);
     border: 2px dashed var(--border-color);
     border-radius: var(--radius-md);
@@ -134,8 +278,8 @@
 .tempo-pitch-section {
     display: flex;
     justify-content: center;
-    gap: var(--spacing-xl);
-    padding: var(--spacing-md) 0;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-sm) 0;
 }
 
 .control-group {
@@ -165,7 +309,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    height: 120px;
+    height: 100px;
 }
 
 /* Reset Tempo Button - Minimal triangle style */
@@ -206,7 +350,7 @@
     writing-mode: vertical-lr;
     direction: rtl;
     width: 40px;
-    height: 120px;
+    height: 100px;
 }
 
 .vertical-slider::-webkit-slider-runnable-track {
@@ -234,17 +378,17 @@
 .transport-controls {
     display: flex;
     justify-content: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) 0;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) 0;
 }
 
 .transport-btn {
-    width: 50px;
-    height: 50px;
+    width: 44px;
+    height: 44px;
     border-radius: var(--radius-md);
     background: var(--bg-tertiary);
     color: var(--text-primary);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -305,7 +449,16 @@
 /* Hot Cues Container */
 .hot-cues-container {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+}
+
+.hot-cues-content {
+    display: flex;
     align-items: center;
     gap: var(--spacing-sm);
 }
@@ -397,18 +550,10 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--spacing-xs);
     padding: var(--spacing-sm);
     background: var(--bg-secondary);
     border-radius: var(--radius-md);
-}
-
-.loop-label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    text-transform: uppercase;
 }
 
 .loop-buttons {
@@ -452,4 +597,147 @@
     background: var(--deck-b-color);
     color: var(--bg-primary);
     border-color: var(--deck-b-color);
+}
+
+/* ========================================
+   FX, LOOP & PADS SECTIONS
+   ======================================== */
+
+/* Section Label (shared) */
+.section-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+/* FX Section */
+.fx-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+}
+
+.fx-controls {
+    display: flex;
+    gap: var(--spacing-md);
+}
+
+.fx-knob-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.fx-knob {
+    width: 36px;
+    height: 36px;
+}
+
+.fx-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+/* Pads Section */
+.pads-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+}
+
+.pads-modes {
+    display: flex;
+    gap: 4px;
+    margin-bottom: var(--spacing-xs);
+}
+
+.pad-mode-btn {
+    padding: 4px 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.pad-mode-btn:hover {
+    border-color: var(--border-highlight);
+    color: var(--text-secondary);
+}
+
+.pad-mode-btn.active {
+    background: var(--bg-tertiary);
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+}
+
+#deckA .pad-mode-btn.active {
+    border-color: var(--deck-a-color);
+    color: var(--deck-a-color);
+}
+
+#deckB .pad-mode-btn.active {
+    border-color: var(--deck-b-color);
+    color: var(--deck-b-color);
+}
+
+.pads-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.pad-btn {
+    width: 44px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 700;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.pad-btn:hover {
+    border-color: var(--border-highlight);
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+}
+
+.pad-btn:active {
+    transform: scale(0.95);
+}
+
+/* Pad colors when active/set */
+#deckA .pad-btn.active,
+#deckA .pad-btn:active {
+    background: var(--deck-a-color);
+    border-color: var(--deck-a-color);
+    color: var(--bg-primary);
+}
+
+#deckB .pad-btn.active,
+#deckB .pad-btn:active {
+    background: var(--deck-b-color);
+    border-color: var(--deck-b-color);
+    color: var(--bg-primary);
 }

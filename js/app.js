@@ -11,6 +11,8 @@ class DJMixApp {
         this.mixer = null;
         this.midiController = null;
         this.autoMixer = null;
+        this.fileBrowser = null;
+        this.playlist = null;
 
         this.isInitialized = false;
     }
@@ -34,6 +36,11 @@ class DJMixApp {
 
         // Create auto mixer
         this.autoMixer = new AutoMixer(this.audioEngine);
+
+        // Create file browser and playlist
+        this.fileBrowser = new FileBrowser(this.audioEngine);
+        this.playlist = new Playlist(this.audioEngine, this.fileBrowser);
+        this.fileBrowser.setPlaylist(this.playlist);
 
         // Setup keyboard shortcuts
         this.setupKeyboardShortcuts();

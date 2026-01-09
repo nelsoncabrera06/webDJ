@@ -248,7 +248,21 @@ class DeckController {
             });
         });
 
-        loadZone.addEventListener('drop', (e) => {
+        loadZone.addEventListener('drop', async (e) => {
+            // Check for browser file drop
+            const audioFileData = e.dataTransfer.getData('application/x-audio-file');
+            if (audioFileData && window.djApp && window.djApp.fileBrowser) {
+                const draggedFileData = window.djApp.fileBrowser.getDraggedFileData();
+                if (draggedFileData) {
+                    const file = await window.djApp.fileBrowser.getFileObject(draggedFileData);
+                    if (file) {
+                        this.loadFile(file);
+                        return;
+                    }
+                }
+            }
+
+            // Native file drop
             const files = e.dataTransfer.files;
             if (files.length > 0 && Utils.isAudioFile(files[0])) {
                 this.loadFile(files[0]);

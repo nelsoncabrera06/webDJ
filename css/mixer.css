@@ -9,7 +9,7 @@
     flex-direction: column;
     gap: var(--spacing-md);
     border: 1px solid var(--border-color);
-    min-width: 220px;
+    min-width: 280px;
 }
 
 .mixer-header {
@@ -22,46 +22,77 @@
     border-bottom: 1px solid var(--border-color);
 }
 
-/* EQ Section */
-.eq-section {
+/* Main Mixer Controls - Horizontal Layout */
+.mixer-controls {
     display: flex;
-    justify-content: space-around;
-    gap: var(--spacing-md);
+    justify-content: center;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
     padding: var(--spacing-sm) 0;
 }
 
-.eq-column {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-md);
-}
-
-.eq-knob-container {
+/* Channel Strip (Volume + Meter) */
+.channel-strip {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-xs);
 }
 
+.channel-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.deck-a-strip .channel-label {
+    color: var(--deck-a-color);
+}
+
+.deck-b-strip .channel-label {
+    color: var(--deck-b-color);
+}
+
+.channel-controls {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+/* EQ Column */
+.eq-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 0 var(--spacing-xs);
+}
+
+.eq-knob-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
 .eq-knob-container label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 600;
     letter-spacing: 1px;
     color: var(--text-muted);
 }
 
 .eq-knob-container .knob-value {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-secondary);
-    min-width: 30px;
+    min-width: 24px;
     text-align: center;
 }
 
 /* Knob */
 .knob {
-    width: 50px;
-    height: 50px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: linear-gradient(145deg, var(--bg-tertiary), var(--bg-secondary));
     border: 2px solid var(--border-color);
@@ -75,8 +106,8 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 4px;
-    height: 40%;
+    width: 3px;
+    height: 35%;
     background: var(--text-primary);
     border-radius: 2px;
     transform-origin: bottom center;
@@ -86,10 +117,10 @@
 .knob::after {
     content: '';
     position: absolute;
-    top: -4px;
-    left: -4px;
-    right: -4px;
-    bottom: -4px;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
     border-radius: 50%;
     border: 2px solid transparent;
     pointer-events: none;
@@ -107,43 +138,12 @@
     border-color: var(--text-primary);
 }
 
-/* Volume Section */
-.volume-section {
-    display: flex;
-    justify-content: space-around;
-    padding: var(--spacing-md) 0;
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.volume-fader-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-sm);
-}
-
-.volume-fader-container label {
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-}
-
-#volumeA + .volume-meter + label,
-.volume-fader-container:first-child label {
-    color: var(--deck-a-color);
-}
-
-.volume-fader-container:last-child label {
-    color: var(--deck-b-color);
-}
-
 /* Volume Fader */
 .volume-fader {
     writing-mode: vertical-lr;
     direction: rtl;
-    width: 35px;
-    height: 150px;
+    width: 30px;
+    height: 180px;
 }
 
 .volume-fader::-webkit-slider-runnable-track {
@@ -155,22 +155,33 @@
 }
 
 .volume-fader::-webkit-slider-thumb {
-    width: 30px;
+    width: 26px;
     height: 10px;
-    margin-left: -12px;
+    margin-left: -10px;
     background: var(--text-primary);
     border: 2px solid var(--border-highlight);
     border-radius: 2px;
 }
 
+.deck-a-strip .volume-fader::-webkit-slider-thumb:hover {
+    border-color: var(--deck-a-color);
+    box-shadow: 0 0 8px var(--deck-a-glow);
+}
+
+.deck-b-strip .volume-fader::-webkit-slider-thumb:hover {
+    border-color: var(--deck-b-color);
+    box-shadow: 0 0 8px var(--deck-b-glow);
+}
+
 /* Volume Meter */
 .volume-meter {
-    width: 8px;
-    height: 150px;
+    width: 10px;
+    height: 180px;
     background: var(--bg-tertiary);
     border-radius: var(--radius-sm);
     overflow: hidden;
     position: relative;
+    border: 1px solid var(--border-color);
 }
 
 .meter-fill {
@@ -183,6 +194,16 @@
     transition: height 0.05s ease;
 }
 
+/* Deck A meter glow effect */
+.deck-a-strip .volume-meter {
+    box-shadow: inset 0 0 4px rgba(0, 212, 255, 0.2);
+}
+
+/* Deck B meter glow effect */
+.deck-b-strip .volume-meter {
+    box-shadow: inset 0 0 4px rgba(255, 107, 53, 0.2);
+}
+
 /* Crossfader Section */
 .crossfader-section {
     display: flex;
@@ -190,6 +211,7 @@
     align-items: center;
     gap: var(--spacing-sm);
     padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
 }
 
 .crossfader-section label {
