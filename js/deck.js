@@ -165,11 +165,13 @@ class DeckController {
         });
 
         // Pitch slider - uses detune to shift pitch in semitones
-        this.elements.pitchSlider.addEventListener('input', (e) => {
-            const pitch = parseFloat(e.target.value);
-            this.elements.pitchValue.textContent = `${pitch > 0 ? '+' : ''}${pitch.toFixed(1)} st`;
-            this.audioEngine.setPitch(this.deckId, pitch);
-        });
+        if (this.elements.pitchSlider) {
+            this.elements.pitchSlider.addEventListener('input', (e) => {
+                const pitch = parseFloat(e.target.value);
+                this.elements.pitchValue.textContent = `${pitch > 0 ? '+' : ''}${pitch.toFixed(1)} st`;
+                this.audioEngine.setPitch(this.deckId, pitch);
+            });
+        }
 
         // Hot cues
         this.elements.hotCueBtns.forEach((btn, index) => {

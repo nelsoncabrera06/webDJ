@@ -143,14 +143,21 @@
                     <div class="deck-platter">
                         <!-- Platter with Tempo -->
                         <div class="platter-tempo-row">
-                            <!-- Tempo (left of platter, away from mixer) -->
-                            <div class="platter-tempo">
-                                <label>TEMPO</label>
-                                <div class="tempo-slider-container">
-                                    <input type="range" id="tempoA" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
-                                    <button class="reset-tempo-btn" id="resetTempoA" title="Reset tempo">&#9664;</button>
+                            <!-- Tempo & Pitch (left of platter, away from mixer) -->
+                            <div class="platter-tempo-pitch">
+                                <div class="platter-tempo">
+                                    <label>TEMPO</label>
+                                    <div class="tempo-slider-container">
+                                        <input type="range" id="tempoA" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
+                                        <button class="reset-tempo-btn" id="resetTempoA" title="Reset tempo">&#9664;</button>
+                                    </div>
+                                    <span class="control-value" id="tempoValueA">1.00x</span>
                                 </div>
-                                <span class="control-value" id="tempoValueA">1.00x</span>
+                                <div class="platter-pitch pitch-control">
+                                    <label>PITCH</label>
+                                    <input type="range" id="pitchA" class="vertical-slider" min="-12" max="12" step="0.1" value="0" orient="vertical">
+                                    <span class="control-value" id="pitchValueA">0 st</span>
+                                </div>
                             </div>
                             <!-- Platter -->
                             <div class="platter-container">
@@ -297,14 +304,21 @@
                     <div class="deck-platter">
                         <!-- Platter with Tempo -->
                         <div class="platter-tempo-row">
-                            <!-- Tempo (right of platter, away from mixer - CSS handles direction) -->
-                            <div class="platter-tempo">
-                                <label>TEMPO</label>
-                                <div class="tempo-slider-container">
-                                    <button class="reset-tempo-btn" id="resetTempoB" title="Reset tempo">&#9654;</button>
-                                    <input type="range" id="tempoB" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
+                            <!-- Tempo & Pitch (right of platter, away from mixer - CSS handles direction) -->
+                            <div class="platter-tempo-pitch">
+                                <div class="platter-tempo">
+                                    <label>TEMPO</label>
+                                    <div class="tempo-slider-container">
+                                        <button class="reset-tempo-btn" id="resetTempoB" title="Reset tempo">&#9654;</button>
+                                        <input type="range" id="tempoB" class="vertical-slider" min="0.5" max="1.5" step="0.01" value="1.0" orient="vertical">
+                                    </div>
+                                    <span class="control-value" id="tempoValueB">1.00x</span>
                                 </div>
-                                <span class="control-value" id="tempoValueB">1.00x</span>
+                                <div class="platter-pitch pitch-control">
+                                    <label>PITCH</label>
+                                    <input type="range" id="pitchB" class="vertical-slider" min="-12" max="12" step="0.1" value="0" orient="vertical">
+                                    <span class="control-value" id="pitchValueB">0 st</span>
+                                </div>
                             </div>
                             <!-- Platter -->
                             <div class="platter-container">
