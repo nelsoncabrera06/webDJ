@@ -430,3 +430,24 @@
 .playlist-content::-webkit-scrollbar-thumb:hover {
     background: var(--border-highlight);
 }
+
+/* Small toggle switch for playlist */
+.toggle-switch.small {
+    width: 36px;
+    height: 20px;
+}
+
+.toggle-switch.small .toggle-slider {
+    border-radius: 20px;
+}
+
+.toggle-switch.small .toggle-slider:before {
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+}
+
+.toggle-switch.small input:checked + .toggle-slider:before {
+    transform: translateX(16px);
+}

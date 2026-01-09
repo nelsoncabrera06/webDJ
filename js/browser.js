@@ -484,6 +484,12 @@ class Playlist {
         this.tracks = []; // Array of { file, name, duration }
         this.currentPlayingIndex = -1;
 
+        // Auto-load state
+        this.autoLoadEnabled = localStorage.getItem('playlistAutoLoad') === 'true';
+        this.autoLoadDelay = 10000; // 10 seconds
+        this.autoLoadTimers = { A: null, B: null };
+        this.deckWasPlaying = { A: false, B: false };
+
         // Bind methods
         this.addTrack = this.addTrack.bind(this);
         this.removeTrack = this.removeTrack.bind(this);
@@ -512,6 +518,55 @@ class Playlist {
                 this.render();
             }
         });
+
+        // Auto-load toggle
+        const autoLoadCheckbox = document.getElementById('autoLoadEnabled');
+        if (autoLoadCheckbox) {
+            autoLoadCheckbox.checked = this.autoLoadEnabled;
+            autoLoadCheckbox.addEventListener('change', (e) => {
+                this.autoLoadEnabled = e.target.checked;
+                localStorage.setItem('playlistAutoLoad', this.autoLoadEnabled);
+            });
+        }
+
+        // Track when decks are playing
+        this.audioEngine.on('play', (deckId) => {
+            this.deckWasPlaying[deckId] = true;
+        });
+
+        // Listen for track ended to auto-load next
+        // Only trigger if the deck was actually playing (not just loading a new track)
+        const handleTrackFinished = (deckId) => {
+            // Only auto-load if deck was playing and auto-load is enabled
+            if (this.deckWasPlaying[deckId] && this.autoLoadEnabled && this.tracks.length > 0) {
+                console.log('Track finished on deck', deckId, '- scheduling auto-load in 10 seconds');
+                this.scheduleAutoLoad(deckId);
+            }
+            // Reset the flag
+            this.deckWasPlaying[deckId] = false;
+        };
+
+        this.audioEngine.on('trackEnded', handleTrackFinished);
+        this.audioEngine.on('stop', handleTrackFinished);
+    }
+
+    /**
+     * Schedule auto-load of next track after delay
+     */
+    scheduleAutoLoad(deckId) {
+        // Cancel previous timer if exists
+        if (this.autoLoadTimers[deckId]) {
+            clearTimeout(this.autoLoadTimers[deckId]);
+        }
+
+        // Schedule load after delay
+        this.autoLoadTimers[deckId] = setTimeout(() => {
+            if (this.tracks.length > 0) {
+                console.log('Auto-load timer fired, loading next track to deck', deckId);
+                this.loadNextTrack(deckId);
+            }
+            this.autoLoadTimers[deckId] = null;
+        }, this.autoLoadDelay);
     }
 
     /**
@@ -642,14 +697,50 @@ class Playlist {
      */
     async loadToDeck(index, deckId) {
         const track = this.tracks[index];
-        if (!track) return;
+        if (!track) {
+            console.log('No track at index', index);
+            return;
+        }
+
+        console.log('Loading track to deck', deckId, ':', track.name);
 
         try {
-            await this.audioEngine.loadTrack(deckId, track.file);
-            this.currentPlayingIndex = index;
+            // Use DeckController.loadFile() to update all UI (name, BPM, waveform, etc.)
+            if (!window.djApp) {
+                console.error('djApp not initialized');
+                return;
+            }
+            const deckController = deckId === 'A' ? window.djApp.deckA : window.djApp.deckB;
+            if (!deckController) {
+                console.error('Deck controller not found for deck', deckId);
+                return;
+            }
+            await deckController.loadFile(track.file);
+            console.log('Track loaded successfully, removing from playlist');
+            // Remove track from playlist after loading
+            this.tracks.splice(index, 1);
+            // Reset current playing index
+            this.currentPlayingIndex = -1;
             this.render();
         } catch (error) {
             console.error('Error loading track:', error);
+        }
+    }
+
+    /**
+     * Load next track from playlist to deck
+     */
+    loadNextTrack(deckId) {
+        if (this.tracks.length === 0) {
+            console.log('Playlist is empty, nothing to load');
+            return;
+        }
+
+        // Always load first track (index 0) since tracks are removed after loading
+        const track = this.tracks[0];
+        if (track) {
+            console.log('Loading first track to deck', deckId, ':', track.name);
+            this.loadToDeck(0, deckId);
         }
     }
 

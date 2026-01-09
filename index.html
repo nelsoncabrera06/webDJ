@@ -159,7 +159,7 @@
                                     <span class="control-value" id="pitchValueA">0 st</span>
                                 </div>
                             </div>
-                            <!-- Platter -->
+                            <!-- Platter with Transport -->
                             <div class="platter-container">
                                 <div class="platter" id="platterA">
                                     <div class="vinyl-disc">
@@ -169,25 +169,25 @@
                                         </div>
                                     </div>
                                 </div>
+                                <!-- Transport Controls (below platter) -->
+                                <div class="platter-transport">
+                                    <button class="transport-btn play-btn" id="playA">
+                                        <span class="icon">▶</span>
+                                    </button>
+                                    <button class="transport-btn pause-btn" id="pauseA">
+                                        <span class="icon">⏸</span>
+                                    </button>
+                                    <button class="transport-btn stop-btn" id="stopA">
+                                        <span class="icon">⏹</span>
+                                    </button>
+                                    <button class="transport-btn cue-btn" id="cueA">
+                                        CUE
+                                    </button>
+                                    <button class="transport-btn sync-btn" id="syncA">
+                                        SYNC
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <!-- Transport Controls (below platter) -->
-                        <div class="platter-transport">
-                            <button class="transport-btn play-btn" id="playA">
-                                <span class="icon">▶</span>
-                            </button>
-                            <button class="transport-btn pause-btn" id="pauseA">
-                                <span class="icon">⏸</span>
-                            </button>
-                            <button class="transport-btn stop-btn" id="stopA">
-                                <span class="icon">⏹</span>
-                            </button>
-                            <button class="transport-btn cue-btn" id="cueA">
-                                CUE
-                            </button>
-                            <button class="transport-btn sync-btn" id="syncA">
-                                SYNC
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -320,7 +320,7 @@
                                     <span class="control-value" id="pitchValueB">0 st</span>
                                 </div>
                             </div>
-                            <!-- Platter -->
+                            <!-- Platter with Transport -->
                             <div class="platter-container">
                                 <div class="platter" id="platterB">
                                     <div class="vinyl-disc">
@@ -330,25 +330,25 @@
                                         </div>
                                     </div>
                                 </div>
+                                <!-- Transport Controls (below platter) -->
+                                <div class="platter-transport">
+                                    <button class="transport-btn play-btn" id="playB">
+                                        <span class="icon">▶</span>
+                                    </button>
+                                    <button class="transport-btn pause-btn" id="pauseB">
+                                        <span class="icon">⏸</span>
+                                    </button>
+                                    <button class="transport-btn stop-btn" id="stopB">
+                                        <span class="icon">⏹</span>
+                                    </button>
+                                    <button class="transport-btn cue-btn" id="cueB">
+                                        CUE
+                                    </button>
+                                    <button class="transport-btn sync-btn" id="syncB">
+                                        SYNC
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <!-- Transport Controls (below platter) -->
-                        <div class="platter-transport">
-                            <button class="transport-btn play-btn" id="playB">
-                                <span class="icon">▶</span>
-                            </button>
-                            <button class="transport-btn pause-btn" id="pauseB">
-                                <span class="icon">⏸</span>
-                            </button>
-                            <button class="transport-btn stop-btn" id="stopB">
-                                <span class="icon">⏹</span>
-                            </button>
-                            <button class="transport-btn cue-btn" id="cueB">
-                                CUE
-                            </button>
-                            <button class="transport-btn sync-btn" id="syncB">
-                                SYNC
-                            </button>
                         </div>
                     </div>
 
@@ -462,6 +462,10 @@
                     <div class="browser-header">
                         <span class="browser-title">PLAYLIST</span>
                         <div class="playlist-controls">
+                            <label class="toggle-switch small" title="Auto-load next track when song ends">
+                                <input type="checkbox" id="autoLoadEnabled">
+                                <span class="toggle-slider"></span>
+                            </label>
                             <span class="playlist-count" id="playlistCount">0 tracks</span>
                             <button class="browser-btn small" id="clearPlaylistBtn" title="Clear Playlist">Clear</button>
                         </div>

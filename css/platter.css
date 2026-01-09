@@ -2,9 +2,11 @@
 
 .platter-container {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    gap: var(--spacing-lg);
     padding: var(--spacing-md);
+    min-width: 0;
 }
 
 .platter {

@@ -66,12 +66,20 @@
 #deckA .deck-controls {
     align-items: center;
     margin-left: auto;
+    border-right: 1px solid var(--border-color);
+    border-left: 1px solid var(--border-color);
+    padding-right: var(--spacing-sm);
+    padding-left: var(--spacing-sm);
 }
 
 /* Deck B: controls column near platter, items centered */
 #deckB .deck-controls {
     align-items: center;
     margin-right: auto;
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    padding-left: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
 }
 
 /* Platter column container */
@@ -98,6 +106,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    min-width: 0;
 }
 
 /* Deck A: tempo on left of platter (away from mixer) */
@@ -182,21 +191,12 @@ body.pitch-independent .pitch-control {
     display: flex;
 }
 
-/* Transport controls below platter */
+/* Transport controls below platter (inside platter-container) */
 .platter-transport {
     display: flex;
     justify-content: center;
     gap: var(--spacing-xs);
     padding: var(--spacing-xs) 0;
-}
-
-/* Same margin as platter to mixer */
-#deckA .platter-transport {
-    padding-right: var(--spacing-lg);
-}
-
-#deckB .platter-transport {
-    padding-left: var(--spacing-lg);
 }
 
 /* Deck A: platter on right */
@@ -510,8 +510,6 @@ body.pitch-independent .pitch-control {
     align-items: center;
     gap: var(--spacing-xs);
     padding: var(--spacing-sm);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
 }
 
 .hot-cues-content {
@@ -609,8 +607,7 @@ body.pitch-independent .pitch-control {
     align-items: center;
     gap: var(--spacing-xs);
     padding: var(--spacing-sm);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .loop-buttons {
@@ -676,8 +673,7 @@ body.pitch-independent .pitch-control {
     align-items: center;
     gap: var(--spacing-xs);
     padding: var(--spacing-sm);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .fx-controls {
@@ -711,8 +707,7 @@ body.pitch-independent .pitch-control {
     align-items: center;
     gap: var(--spacing-xs);
     padding: var(--spacing-sm);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .pads-modes {
