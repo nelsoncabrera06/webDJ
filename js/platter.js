@@ -88,6 +88,9 @@ class PlatterController {
 
         const deck = this.audioEngine.decks[this.deckId];
 
+        // Suspend PLL correction during the gesture so it doesn't fight the user
+        deck.pllSuspended = true;
+
         if (deck.isPlaying && !deck.isPaused) {
             // Playing: save original tempo for nudge
             this.originalTempo = deck.tempo;
@@ -154,6 +157,13 @@ class PlatterController {
             this.audioEngine.setTempo(this.deckId, this.originalTempo);
         }
 
+        // Resume PLL; if synced, re-open a capture window to re-lock cleanly
+        deck.pllSuspended = false;
+        if (deck.syncEnabled) {
+            deck.pllPhaseError = 0;
+            deck.slewUntil = performance.now() + this.audioEngine.PLL_SLEW_MS;
+        }
+
         this.element.classList.remove('active');
     }
 
@@ -182,6 +192,7 @@ class PlatterController {
             // Store original tempo on first nudge of this series
             if (!this.midiNudgeTimeout) {
                 this.originalMidiTempo = deck.tempo;
+                deck.pllSuspended = true; // don't let the PLL fight the jog
             }
 
             // delta positive = clockwise = speed up
@@ -200,6 +211,12 @@ class PlatterController {
                 // Return to original tempo
                 this.audioEngine.setTempo(this.deckId, this.originalMidiTempo);
                 this.midiNudgeTimeout = null;
+                // Resume PLL; re-open capture window if synced
+                deck.pllSuspended = false;
+                if (deck.syncEnabled) {
+                    deck.pllPhaseError = 0;
+                    deck.slewUntil = performance.now() + this.audioEngine.PLL_SLEW_MS;
+                }
             }, 150);
         } else {
             // SCRATCH: seek through track when stopped

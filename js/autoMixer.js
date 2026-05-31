@@ -166,6 +166,10 @@ class AutoMixer {
         // Stop the outgoing deck
         this.audioEngine.stop(fromDeck);
 
+        // Release the persistent sync lock from the auto-mix (bakes the matched
+        // tempo into the incoming deck) so the tempo reset below can ease it to 1.0x
+        this.audioEngine.clearSync(toDeck);
+
         // Reset outgoing deck volume for next use
         setTimeout(() => {
             this.audioEngine.setVolume(fromDeck, this.originalVolumes[fromDeck]);

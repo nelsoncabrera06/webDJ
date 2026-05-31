@@ -64,6 +64,7 @@ class DeckController {
             stopBtn: document.getElementById(`stop${id}`),
             cueBtn: document.getElementById(`cue${id}`),
             syncBtn: document.getElementById(`sync${id}`),
+            masterBadge: document.getElementById(`masterBadge${id}`),
 
             // Hot cues (1-8)
             hotCueBtns: [
@@ -329,6 +330,17 @@ class DeckController {
             }
         });
 
+        // Sync state changes (master/slave)
+        this.audioEngine.on('syncChanged', () => {
+            this.updateSyncState();
+        });
+        this.audioEngine.on('syncFailed', (deckId) => {
+            if (deckId !== this.deckId) return;
+            // brief flash to signal there's nothing to sync to
+            this.elements.syncBtn.classList.add('sync-failed');
+            setTimeout(() => this.elements.syncBtn.classList.remove('sync-failed'), 300);
+        });
+
         // Loop events
         this.audioEngine.on('loopEnabled', (deckId) => {
             if (deckId !== this.deckId) return;
@@ -451,6 +463,20 @@ class DeckController {
 
     sync() {
         this.audioEngine.sync(this.deckId);
+    }
+
+    /**
+     * Reflect master/slave sync state in the UI (SYNC button + MASTER badge).
+     */
+    updateSyncState() {
+        const deck = this.audioEngine.decks[this.deckId];
+        const isSlave = deck.syncRole === 'slave' && deck.syncEnabled;
+        const isMaster = deck.syncRole === 'master';
+
+        this.elements.syncBtn.classList.toggle('active', isSlave);
+        if (this.elements.masterBadge) {
+            this.elements.masterBadge.classList.toggle('visible', isMaster);
+        }
     }
 
     handleHotCue(index) {

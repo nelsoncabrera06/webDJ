@@ -24,6 +24,16 @@ class AudioEngine {
 
         // Position update loop
         this.positionLoop = null;
+
+        // Sync (master/slave phase-locked loop)
+        this.masterDeckId = null;       // 'A' | 'B' | null
+        this.PLL_KP = 0.15;             // proportional gain (rate per beat of phase error); τ≈3s
+        this.PLL_MAX_CORRECTION = 0.04; // ±4% clamp on rate correction while holding lock
+        this.PLL_DEADBAND = 0.002;      // beats; below this, no correction (avoids hunting)
+        this.PLL_SLEW_CLAMP = 0.08;     // wider clamp during the capture window after pressing SYNC
+        this.PLL_SLEW_MS = 3000;        // duration of the capture window (faster initial pull-in)
+        this.PHASE_EMA_ALPHA = 0.3;     // low-pass on measured phase error
+        this.MAX_RATE_SLEW = 0.5;       // max playbackRate change per second (ramping)
     }
 
     /**
@@ -51,6 +61,17 @@ class AudioEngine {
             duration: 0,
             tempo: 1.0,
 
+            // Sync / PLL state
+            syncEnabled: false,         // is this deck a slave currently locked?
+            syncRole: null,             // 'master' | 'slave' | null
+            baseTempo: 1.0,             // user-intended tempo (slider); separate from playbackRate
+            syncRatio: 1.0,             // multiplier to match master effective BPM (half/double)
+            pllCorrection: 0,           // current PLL output added to the rate
+            pllPhaseError: 0,           // EMA-smoothed phase error (beats)
+            pllSuspended: false,        // suspend correction during scratch/nudge gestures
+            slewUntil: 0,               // timestamp (ms) until which the wider capture clamp applies
+            rateTarget: 1.0,            // target playbackRate for the ramp
+
             // Volume
             volume: 1.0,
 
@@ -69,6 +90,7 @@ class AudioEngine {
 
             // Pitch shift in semitones (for independent mode)
             pitchSemitones: 0,
+            pitchRatio: 1.0,    // playback-rate multiplier from pitch (independent mode)
 
             // For linked/independent mode
             preservesPitch: true,
@@ -83,7 +105,10 @@ class AudioEngine {
             loopBeats: 4,        // Beats (puede ser fracción: 0.03125 = 1/32)
 
             // Beat grid offset (time of first beat in seconds)
-            beatOffset: 0
+            beatOffset: 0,
+
+            // Beat grid (used for sync phase alignment)
+            beatGrid: { bpm: 0, firstBeatTime: 0, confidence: 0 }
         };
     }
 
@@ -165,6 +190,8 @@ class AudioEngine {
         audio.addEventListener('ended', () => {
             deck.isPlaying = false;
             deck.isPaused = false;
+            // Track ended → tear down any sync involving this deck
+            if (deck.syncRole) this.clearSync(deckId);
             this.events.emit('trackEnded', deckId);
             this.events.emit('stop', deckId);
         });
@@ -234,7 +261,8 @@ class AudioEngine {
         deck.audioElement.src = deck.objectUrl;
 
         // Apply current settings
-        deck.audioElement.playbackRate = deck.tempo;
+        deck.baseTempo = deck.tempo;
+        this.applyPlaybackRate(deckId);
         this.setAudioPreservesPitch(deck.audioElement, deck.preservesPitch);
 
         // Wait for metadata
@@ -264,11 +292,15 @@ class AudioEngine {
         const arrayBuffer = await file.arrayBuffer();
         deck.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
 
-        // Detect BPM and beat offset
+        // Detect BPM and beat grid
         const bpmDetector = new BPMDetector();
         const bpmResult = await bpmDetector.detect(deck.audioBuffer);
         deck.bpm = bpmResult.bpm;
         deck.beatOffset = bpmResult.beatOffset;
+        deck.beatGrid = bpmResult.beatGrid || { bpm: deck.bpm, firstBeatTime: 0, confidence: 0 };
+
+        // A new track invalidates any sync involving this deck
+        this.clearSync(deckId);
 
         // Generate waveform
         const waveformGenerator = new WaveformGenerator();
@@ -324,6 +356,20 @@ class AudioEngine {
         deck.isPlaying = true;
         deck.isPaused = false;
 
+        // If the master just (re)started, the slave is off-phase → re-capture
+        if (deckId === this.masterDeckId) {
+            const slaveId = deckId === 'A' ? 'B' : 'A';
+            const slave = this.decks[slaveId];
+            if (slave.syncEnabled) {
+                slave.pllPhaseError = 0;
+                if (!slave.isPlaying || slave.isPaused) {
+                    this.alignBeatPhasePaused(slaveId, deckId);
+                } else {
+                    slave.slewUntil = (typeof performance !== 'undefined' ? performance.now() : 0) + this.PLL_SLEW_MS;
+                }
+            }
+        }
+
         this.updateCrossfaderGains();
         this.events.emit('play', deckId);
     }
@@ -378,16 +424,67 @@ class AudioEngine {
     }
 
     /**
-     * Set tempo (playback rate)
+     * Set tempo (user slider intent). Does NOT write playbackRate directly —
+     * the rate is composed (tempo × syncRatio × pitch + PLL correction) and
+     * ramped smoothly in the position loop to avoid clicks.
      */
     setTempo(deckId, tempo) {
         const deck = this.decks[deckId];
         tempo = Utils.clamp(tempo, 0.5, 1.5);
 
         deck.tempo = tempo;
-        deck.audioElement.playbackRate = tempo;
+        deck.baseTempo = tempo;
+        deck.rateTarget = this.composedRate(deckId);
+
+        // While stopped/paused there's no audio, so apply instantly (no click possible)
+        if (!deck.isPlaying || deck.isPaused) {
+            this.applyPlaybackRate(deckId);
+        }
 
         this.events.emit('tempoChange', deckId, tempo);
+    }
+
+    /**
+     * Compose the target playback rate from all contributing factors.
+     * rate = baseTempo × syncRatio × pitchRatio + (synced ? pllCorrection : 0)
+     */
+    composedRate(deckId) {
+        const deck = this.decks[deckId];
+        let rate = deck.baseTempo * deck.syncRatio * deck.pitchRatio;
+        if (deck.syncEnabled) rate += deck.pllCorrection;
+        return Utils.clamp(rate, 0.25, 4.0);
+    }
+
+    /**
+     * Write the composed rate to the audio element immediately (no ramp).
+     * Used for inaudible contexts (stopped deck, sync ratio change).
+     */
+    applyPlaybackRate(deckId) {
+        const deck = this.decks[deckId];
+        if (!deck.audioElement) return;
+        const rate = this.composedRate(deckId);
+        deck.rateTarget = rate;
+        deck.audioElement.playbackRate = rate;
+    }
+
+    /**
+     * Smoothly move playbackRate toward its composed target, capped per second.
+     * Called every frame from the position loop (kills clicks on tempo changes).
+     */
+    rampRate(deckId, dtSec) {
+        const deck = this.decks[deckId];
+        if (!deck.audioElement) return;
+
+        const target = this.composedRate(deckId);
+        const cur = deck.audioElement.playbackRate;
+        const maxStep = this.MAX_RATE_SLEW * dtSec;
+        const diff = target - cur;
+
+        if (Math.abs(diff) <= maxStep) {
+            if (cur !== target) deck.audioElement.playbackRate = target;
+        } else {
+            deck.audioElement.playbackRate = cur + Math.sign(diff) * maxStep;
+        }
     }
 
     /**
@@ -515,6 +612,11 @@ class AudioEngine {
 
         this.setAudioPreservesPitch(deck.audioElement, preserve);
 
+        // pitch shift only contributes to the rate in independent mode
+        deck.pitchRatio = preserve ? 1.0 : Math.pow(2, deck.pitchSemitones / 12);
+        deck.rateTarget = this.composedRate(deckId);
+        if (!deck.isPlaying || deck.isPaused) this.applyPlaybackRate(deckId);
+
         console.log(`Deck ${deckId}: preservesPitch = ${preserve}`);
     }
 
@@ -528,74 +630,223 @@ class AudioEngine {
         semitones = Utils.clamp(semitones, -12, 12);
         deck.pitchSemitones = semitones;
 
-        // In independent mode, we can combine tempo and pitch
-        // by adjusting playbackRate
-        // pitchRatio = 2^(semitones/12)
-        if (!deck.preservesPitch) {
-            const pitchRatio = Math.pow(2, semitones / 12);
-            deck.audioElement.playbackRate = deck.tempo * pitchRatio;
-        }
+        // In independent mode, pitch shift is applied via playbackRate.
+        // In linked mode (keylock) it does not affect the rate.
+        deck.pitchRatio = deck.preservesPitch ? 1.0 : Math.pow(2, semitones / 12);
+        deck.rateTarget = this.composedRate(deckId);
+        if (!deck.isPlaying || deck.isPaused) this.applyPlaybackRate(deckId);
 
         this.events.emit('pitchChange', deckId, semitones);
     }
 
+    // ---- Sync (master/slave phase-locked loop) ----------------------------
+
     /**
-     * Sync deck to the other deck's tempo and beat phase
+     * Get the BPM used for the beat grid of a deck (grid bpm preferred).
      */
-    sync(deckId) {
-        const sourceDeck = deckId === 'A' ? this.decks.B : this.decks.A;
-        const targetDeck = this.decks[deckId];
-
-        if (!sourceDeck.bpm || !targetDeck.bpm) return;
-
-        // Calculate tempo ratio to match effective BPM
-        const sourceEffectiveBpm = sourceDeck.bpm * sourceDeck.tempo;
-        const tempoRatio = sourceEffectiveBpm / targetDeck.bpm;
-        this.setTempo(deckId, Utils.clamp(tempoRatio, 0.5, 1.5));
-
-        // Align beat phase
-        this.alignBeatPhase(deckId);
-
-        this.events.emit('sync', deckId, tempoRatio);
+    getGridBpm(deckId) {
+        const deck = this.decks[deckId];
+        return deck.beatGrid && deck.beatGrid.bpm ? deck.beatGrid.bpm : deck.bpm;
     }
 
     /**
-     * Align the beat phase of a deck to match the other deck
+     * Absolute beat phase of a deck in [0, 1).
+     * Uses MEDIA time (currentTime) and the ORIGINAL bpm — phase is a
+     * dimensionless fraction, so it is invariant to playbackRate.
      */
-    alignBeatPhase(deckId) {
-        const sourceDeck = deckId === 'A' ? this.decks.B : this.decks.A;
-        const targetDeck = this.decks[deckId];
+    getBeatPhase(deckId) {
+        const deck = this.decks[deckId];
+        const bpm = this.getGridBpm(deckId);
+        if (!bpm) return null;
 
-        if (!sourceDeck.bpm || !targetDeck.bpm) return;
-        if (!sourceDeck.isPlaying) return; // Only align if source is playing
+        const spb = 60 / bpm;                 // media seconds per beat (original tempo)
+        const t = this.getPosition(deckId);
+        const firstBeat = deck.beatGrid ? deck.beatGrid.firstBeatTime : 0;
+        let phase = ((t - firstBeat) / spb) % 1;
+        if (phase < 0) phase += 1;
+        return phase;
+    }
 
-        // Get effective BPMs (after tempo adjustment)
-        const sourceEffectiveBpm = sourceDeck.bpm * sourceDeck.tempo;
-        const targetEffectiveBpm = targetDeck.bpm * targetDeck.tempo;
+    /**
+     * Phase error (master relative to slave), wrapped to (-0.5, 0.5] beats.
+     * Positive => slave is behind the master and should speed up.
+     */
+    getPhaseError(masterId, slaveId) {
+        const pm = this.getBeatPhase(masterId);
+        const ps = this.getBeatPhase(slaveId);
+        if (pm == null || ps == null) return 0;
+        let e = pm - ps;
+        e -= Math.round(e); // wrap to (-0.5, 0.5]
+        return e;
+    }
 
-        // Calculate beat phase of source deck (0-1, where in the beat cycle)
-        const sourcePosition = this.getPosition(sourceDeck === this.decks.A ? 'A' : 'B');
-        const sourceSecondsPerBeat = 60 / sourceEffectiveBpm;
-        const sourceBeatPhase = (sourcePosition / sourceSecondsPerBeat) % 1;
+    /**
+     * Compute the tempo ratio that matches the slave's effective BPM to the
+     * master's, folding by ×2/÷2 to resolve half/double-time mismatches.
+     */
+    computeSyncRatio(masterId, slaveId) {
+        const masterBpm = this.getGridBpm(masterId);
+        const slaveBpm = this.getGridBpm(slaveId);
+        const masterDeck = this.decks[masterId];
+        if (!masterBpm || !slaveBpm) return 1.0;
 
-        // Calculate current beat phase of target deck
-        const targetPosition = this.getPosition(deckId);
-        const targetSecondsPerBeat = 60 / targetEffectiveBpm;
-        const targetBeatPhase = (targetPosition / targetSecondsPerBeat) % 1;
+        const masterEffective = masterBpm * masterDeck.baseTempo * masterDeck.syncRatio;
+        let ratio = masterEffective / slaveBpm;
 
-        // Calculate phase difference (-0.5 to 0.5)
-        let phaseDiff = sourceBeatPhase - targetBeatPhase;
-        if (phaseDiff > 0.5) phaseDiff -= 1;
-        if (phaseDiff < -0.5) phaseDiff += 1;
+        // Fold into a comfortable band so 70 vs 140 locks correctly
+        while (ratio > 1.4) ratio /= 2;
+        while (ratio < 0.7) ratio *= 2;
 
-        // Convert phase difference to time offset
-        const timeOffset = phaseDiff * targetSecondsPerBeat;
+        return Utils.clamp(ratio, 0.25, 4.0);
+    }
 
-        // Apply the offset to align beats
-        const newPosition = targetPosition + timeOffset;
-        if (newPosition >= 0 && newPosition < targetDeck.duration) {
-            targetDeck.audioElement.currentTime = newPosition;
+    /**
+     * Toggle persistent master/slave sync on a deck.
+     * Pressing SYNC makes this deck the SLAVE of the other (the MASTER); a PLL
+     * keeps it locked in tempo and beat phase. Pressing again un-syncs it.
+     */
+    sync(deckId) {
+        const slave = this.decks[deckId];
+        const masterId = deckId === 'A' ? 'B' : 'A';
+        const master = this.decks[masterId];
+
+        // Toggle off if this deck is already the slave
+        if (slave.syncEnabled && slave.syncRole === 'slave') {
+            this.clearSync(deckId);
+            return;
         }
+
+        // If this deck is currently the master, swap roles (sync to the other)
+        if (slave.syncRole === 'master') {
+            this.clearSync(deckId);
+        }
+
+        // Need a valid beat grid on both decks
+        if (!this.getGridBpm(deckId) || !this.getGridBpm(masterId)) {
+            this.events.emit('syncFailed', deckId);
+            return;
+        }
+
+        // Assign roles
+        this.masterDeckId = masterId;
+        master.syncRole = 'master';
+        master.syncEnabled = false;     // master is never PLL-corrected
+        slave.syncRole = 'slave';
+        slave.syncEnabled = true;
+        slave.pllCorrection = 0;
+        slave.pllPhaseError = 0;
+        slave.pllSuspended = false;
+
+        // Match tempo (half/double aware)
+        slave.syncRatio = this.computeSyncRatio(masterId, deckId);
+        slave.rateTarget = this.composedRate(deckId);
+
+        if (!slave.isPlaying || slave.isPaused) {
+            // Inaudible: hard-align phase and apply tempo instantly
+            this.applyPlaybackRate(deckId);
+            this.alignBeatPhasePaused(deckId, masterId);
+        } else {
+            // Playing: never seek. Open a brief capture window so the PLL
+            // pulls into phase faster, then settles to the holding clamp.
+            slave.slewUntil = (typeof performance !== 'undefined' ? performance.now() : 0) + this.PLL_SLEW_MS;
+        }
+
+        this.events.emit('syncChanged', {
+            masterId,
+            slaveId: deckId,
+            ratio: slave.syncRatio,
+            enabled: true
+        });
+    }
+
+    /**
+     * Hard-align the slave's beat phase to the master by seeking currentTime.
+     * Only safe (inaudible) when the slave is NOT playing.
+     */
+    alignBeatPhasePaused(slaveId, masterId) {
+        const slave = this.decks[slaveId];
+        const bpm = this.getGridBpm(slaveId);
+        if (!bpm) return;
+
+        const err = this.getPhaseError(masterId, slaveId); // beats
+        const spbMedia = 60 / bpm;
+        const newPos = this.getPosition(slaveId) + err * spbMedia;
+
+        if (newPos >= 0 && newPos < slave.duration) {
+            slave.audioElement.currentTime = newPos;
+        }
+    }
+
+    /**
+     * Clear sync state for a deck (and its partner role if it was master).
+     * Freezes the current playback rate so there is no audible jump.
+     */
+    clearSync(deckId) {
+        const deck = this.decks[deckId];
+        const wasSlave = deck.syncRole === 'slave';
+
+        // Freeze rate: bake the current matched tempo into baseTempo, drop PLL
+        if (wasSlave) {
+            const held = deck.baseTempo * deck.syncRatio;
+            deck.baseTempo = Utils.clamp(held, 0.5, 1.5);
+            deck.tempo = deck.baseTempo;
+        }
+        deck.syncEnabled = false;
+        deck.syncRole = null;
+        deck.syncRatio = 1.0;
+        deck.pllCorrection = 0;
+        deck.pllPhaseError = 0;
+        deck.pllSuspended = false;
+        deck.slewUntil = 0;
+        deck.rateTarget = this.composedRate(deckId);
+
+        // Clear the partner's role too
+        const otherId = deckId === 'A' ? 'B' : 'A';
+        const other = this.decks[otherId];
+        if (this.masterDeckId === deckId || this.masterDeckId === otherId) {
+            other.syncEnabled = false;
+            other.syncRole = null;
+            this.masterDeckId = null;
+        }
+
+        this.events.emit('syncChanged', {
+            masterId: this.masterDeckId,
+            slaveId: deckId,
+            ratio: deck.syncRatio,
+            enabled: false
+        });
+    }
+
+    /**
+     * PLL: continuously nudge the slave's playbackRate to hold beat phase with
+     * the master. Runs once per frame from the position loop.
+     */
+    updatePLL() {
+        const masterId = this.masterDeckId;
+        if (!masterId) return;
+
+        const slaveId = masterId === 'A' ? 'B' : 'A';
+        const slave = this.decks[slaveId];
+        const master = this.decks[masterId];
+
+        if (!slave.syncEnabled || !slave.isPlaying || slave.isPaused || slave.pllSuspended) return;
+        // Master not playing → freeze correction (keep matched tempo)
+        if (!master.isPlaying || master.isPaused) return;
+
+        // Smooth the measured phase error to reject currentTime read jitter
+        const raw = this.getPhaseError(masterId, slaveId);
+        slave.pllPhaseError += this.PHASE_EMA_ALPHA * (raw - slave.pllPhaseError);
+        const err = slave.pllPhaseError;
+
+        let correction = 0;
+        if (Math.abs(err) > this.PLL_DEADBAND) {
+            const now = (typeof performance !== 'undefined' ? performance.now() : 0);
+            const clamp = now < slave.slewUntil ? this.PLL_SLEW_CLAMP : this.PLL_MAX_CORRECTION;
+            correction = Utils.clamp(err * this.PLL_KP, -clamp, clamp);
+        }
+        slave.pllCorrection = correction;
+        // The ramp in the loop will move playbackRate toward the new composed target
+        slave.rateTarget = this.composedRate(slaveId);
     }
 
     /**
@@ -629,9 +880,12 @@ class AudioEngine {
         const deck = this.decks[deckId];
         if (!deck.bpm || deck.bpm <= 0) return time;
 
+        // Quantize against the detected beat grid (firstBeatTime offset) so a
+        // loop wrap preserves beat phase for a synced deck.
         const secondsPerBeat = 60 / deck.bpm;
-        const beatNumber = Math.round(time / secondsPerBeat);
-        return beatNumber * secondsPerBeat;
+        const firstBeat = deck.beatGrid ? deck.beatGrid.firstBeatTime : 0;
+        const beatNumber = Math.round((time - firstBeat) / secondsPerBeat);
+        return firstBeat + beatNumber * secondsPerBeat;
     }
 
     /**
@@ -724,8 +978,17 @@ class AudioEngine {
         if (this.positionLoop) return;
 
         this.positionLoop = Utils.createAnimationLoop((time, deltaTime) => {
+            const dtSec = deltaTime / 1000;
+
+            // Phase-locked loop: nudge the slave's correction toward beat lock
+            this.updatePLL();
+
             for (const deckId of ['A', 'B']) {
                 const deck = this.decks[deckId];
+
+                // Smoothly ramp playbackRate toward its composed target (no clicks)
+                this.rampRate(deckId, dtSec);
+
                 if (deck.isPlaying && !deck.isPaused) {
                     const position = this.getPosition(deckId);
 

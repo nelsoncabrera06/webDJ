@@ -506,6 +506,36 @@ body.pitch-independent .pitch-control {
     border-color: var(--accent-green);
 }
 
+/* Active sync (slave locked): subtle glow so the lock is obvious */
+.sync-btn.active {
+    box-shadow: 0 0 8px var(--accent-green);
+}
+
+/* Brief red flash when there's nothing to sync to */
+.sync-btn.sync-failed {
+    background: #e04848;
+    border-color: #e04848;
+    color: #fff;
+}
+
+/* MASTER badge — hidden by default, shown on the master deck */
+.master-badge {
+    display: none;
+    flex-shrink: 0;
+    padding: 1px 6px;
+    margin-left: 8px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 3px;
+    background: var(--accent-green, #4caf50);
+    color: var(--bg-primary, #000);
+}
+
+.master-badge.visible {
+    display: inline-block;
+}
+
 /* Hot Cues Container */
 .hot-cues-container {
     display: flex;

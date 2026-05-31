@@ -12,65 +12,86 @@ class BPMDetector {
     }
 
     /**
-     * Detect BPM and beat offset from audio buffer
+     * Detect BPM and beat grid from audio buffer
      * @param {AudioBuffer} audioBuffer
-     * @returns {Promise<{bpm: number, beatOffset: number}>} Detected BPM and beat offset
+     * @returns {Promise<{bpm: number, beatOffset: number, beatGrid: {bpm: number, firstBeatTime: number, confidence: number}}>}
      */
     async detect(audioBuffer) {
         return new Promise((resolve) => {
             // Get mono channel data
             const channelData = this.getMixedChannelData(audioBuffer);
 
-            // Calculate onset envelope
-            const envelope = this.calculateOnsetEnvelope(channelData, audioBuffer.sampleRate);
+            // Calculate onset envelope (spectral flux at 200Hz)
+            const onset = this.calculateOnsetEnvelope(channelData, audioBuffer.sampleRate);
 
             // Detect BPM using autocorrelation
-            const bpm = this.autocorrelationBPM(envelope, audioBuffer.sampleRate);
+            const bpm = this.autocorrelationBPM(onset, audioBuffer.sampleRate);
 
-            // Detect beat offset (first beat position)
-            const beatOffset = this.detectBeatOffset(channelData, audioBuffer.sampleRate, bpm);
+            // Detect the beat grid (first-beat phase) via comb filter on the onset envelope
+            const beatGrid = this.detectBeatGrid(onset, 200, bpm);
 
             resolve({
                 bpm: Math.round(bpm * 10) / 10,
-                beatOffset
+                beatOffset: beatGrid.firstBeatTime, // backward compat (waveform)
+                beatGrid
             });
         });
     }
 
     /**
-     * Detect the beat offset (time of first significant beat)
-     * @param {Float32Array} channelData - Mono audio data
-     * @param {number} sampleRate - Sample rate
+     * Detect the beat grid by comb-filtering the onset envelope against the
+     * detected BPM period. Finds the phase offset (first beat) that best aligns
+     * an impulse train at the beat period with the onset peaks.
+     *
+     * @param {Float32Array} onset - Onset detection function (200Hz)
+     * @param {number} analysisRate - Frames per second of the onset envelope (200)
      * @param {number} bpm - Detected BPM
-     * @returns {number} Beat offset in seconds
+     * @returns {{bpm: number, firstBeatTime: number, confidence: number}}
      */
-    detectBeatOffset(channelData, sampleRate, bpm) {
-        // Search in first 10 seconds for the first significant peak
-        const searchLength = Math.min(sampleRate * 10, channelData.length);
+    detectBeatGrid(onset, analysisRate, bpm) {
+        const empty = { bpm, firstBeatTime: 0, confidence: 0 };
+        if (!bpm || !onset || onset.length === 0) return empty;
 
-        // Find maximum peak in search range
-        let maxPeak = 0;
-        for (let i = 0; i < searchLength; i++) {
-            const absValue = Math.abs(channelData[i]);
-            if (absValue > maxPeak) maxPeak = absValue;
-        }
+        // Beat period in envelope frames (may be fractional)
+        const period = (60 / bpm) * analysisRate;
+        const periodInt = Math.max(1, Math.round(period));
 
-        // Find first peak that exceeds 60% of max (threshold for first beat)
-        const threshold = maxPeak * 0.6;
-        for (let i = 0; i < searchLength; i++) {
-            if (Math.abs(channelData[i]) >= threshold) {
-                // Convert sample index to seconds
-                const timeInSeconds = i / sampleRate;
+        // For each candidate phase, sum the onset energy at every beat position
+        // (a comb filter / cross-correlation with an impulse train).
+        let bestPhase = 0;
+        let bestScore = -Infinity;
+        let scoreSum = 0;
+        let scoreCount = 0;
 
-                // Return the offset within one beat cycle
-                const secondsPerBeat = 60 / bpm;
-                const beatOffset = timeInSeconds % secondsPerBeat;
+        for (let phase = 0; phase < periodInt; phase++) {
+            let score = 0;
+            let hits = 0;
+            for (let pos = phase; pos < onset.length; pos += period) {
+                const idx = Math.round(pos);
+                if (idx >= onset.length) break;
+                score += onset[idx];
+                hits++;
+            }
+            // Normalize by number of beats so early/late phases compare fairly
+            if (hits > 0) score /= hits;
 
-                return beatOffset;
+            scoreSum += score;
+            scoreCount++;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestPhase = phase;
             }
         }
 
-        return 0; // Default: beat at t=0
+        const meanScore = scoreCount > 0 ? scoreSum / scoreCount : 0;
+        const confidence = meanScore > 0 ? bestScore / meanScore : 0;
+
+        return {
+            bpm,
+            firstBeatTime: bestPhase / analysisRate,
+            confidence
+        };
     }
 
     /**
