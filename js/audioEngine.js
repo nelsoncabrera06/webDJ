@@ -325,6 +325,20 @@ class AudioEngine {
     }
 
     /**
+     * Load audio file from a URL/path into a deck
+     */
+    async loadTrackFromUrl(deckId, url, trackName) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: Failed to fetch audio from ${url}`);
+        }
+        const blob = await response.blob();
+        const fileName = trackName || url.split('/').pop();
+        const file = new File([blob], fileName, { type: blob.type || 'audio/mpeg' });
+        return await this.loadTrack(deckId, file);
+    }
+
+    /**
      * Set preservesPitch on audio element (with vendor prefixes)
      */
     setAudioPreservesPitch(audio, preserve) {

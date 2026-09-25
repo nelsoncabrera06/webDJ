@@ -399,6 +399,31 @@ class DeckController {
     }
 
     /**
+     * Load audio file from a URL/path
+     */
+    async loadFileFromUrl(url, trackName) {
+        try {
+            if (this.elements.trackName) {
+                this.elements.trackName.textContent = 'Loading...';
+            }
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: Failed to fetch audio from ${url}`);
+            }
+            const blob = await response.blob();
+            const fileName = trackName || url.split('/').pop();
+            const file = new File([blob], fileName, { type: blob.type || 'audio/mpeg' });
+            return await this.loadFile(file);
+        } catch (error) {
+            console.warn(`Could not load audio from ${url}:`, error);
+            if (this.elements.trackName) {
+                this.elements.trackName.textContent = 'No Track Loaded';
+            }
+            throw error;
+        }
+    }
+
+    /**
      * Update BPM display with tempo adjustment
      */
     updateBpmDisplay() {

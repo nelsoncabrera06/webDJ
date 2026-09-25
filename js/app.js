@@ -56,6 +56,9 @@ class DJMixApp {
 
         this.isInitialized = true;
         console.log('DJ Mix Web initialized');
+
+        // Automatically load default demo tracks
+        this.loadDemoTracks();
     }
 
     /**
@@ -430,6 +433,29 @@ class DJMixApp {
         const success = await this.midiController.init();
         if (!success) {
             console.log('Failed to initialize MIDI controller');
+        }
+    }
+
+    /**
+     * Load default demo tracks into Deck A and Deck B
+     */
+    async loadDemoTracks() {
+        const trackAPath = 'audio/demo-deck-a.mp3';
+        const trackBPath = 'audio/demo-deck-b.mp3';
+
+        try {
+            console.log('Loading default demo tracks...');
+            await Promise.allSettled([
+                this.deckA.loadFileFromUrl(trackAPath, 'Demo Track A').catch(e => {
+                    console.info('Demo track A not loaded:', e.message);
+                }),
+                this.deckB.loadFileFromUrl(trackBPath, 'Demo Track B').catch(e => {
+                    console.info('Demo track B not loaded:', e.message);
+                })
+            ]);
+            console.log('Demo tracks loading finished');
+        } catch (err) {
+            console.info('Demo tracks skipped or not found:', err);
         }
     }
 }
