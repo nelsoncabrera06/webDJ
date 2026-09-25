@@ -1,6 +1,7 @@
 # Carpetas del proyecto
 /MisCosas
 /.claude
+*old.md
 
 # Contexto local de Claude Code (no publicar)
 CLAUDE.md
