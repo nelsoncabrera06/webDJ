@@ -77,21 +77,35 @@
 
                     <!-- Deck A Controls Column -->
                     <div class="deck-controls">
-                        <!-- FX Section -->
+                        <!-- FX Section: 4 slots (numbered like the console). Slot 1 is a working filter;
+                             the rest only store their state until their effect is implemented (see setupFx in deck.js).
+                             All four slots share the same width (set by CSS) so the knobs are evenly spaced. -->
                         <div class="fx-section">
                             <span class="section-label">FX</span>
                             <div class="fx-controls">
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxFilterA" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">FILTER</span>
+                                <div class="fx-knob-group" data-fx-slot="1" data-fx-type="filter">
+                                    <span class="fx-label"><span class="fx-number">1.</span><span class="fx-name">FILTER</span></span>
+                                    <div class="knob fx-knob" id="fxSlot1A" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot1ToggleA" title="Toggle FX 1 (filter)" aria-pressed="false">ON</button>
                                 </div>
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxFlangerA" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">FLANGER</span>
+                                <div class="fx-knob-group" data-fx-slot="2" data-fx-type="flanger">
+                                    <span class="fx-label"><span class="fx-number">2.</span><span class="fx-name">FLANGER</span></span>
+                                    <div class="knob fx-knob" id="fxSlot2A" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot2ToggleA" title="Toggle FX 2 (flanger)" aria-pressed="false">ON</button>
                                 </div>
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxEchoA" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">ECHO</span>
+                                <div class="fx-knob-group" data-fx-slot="3" data-fx-type="echo">
+                                    <span class="fx-label"><span class="fx-number">3.</span><span class="fx-name">ECHO</span></span>
+                                    <div class="knob fx-knob" id="fxSlot3A" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot3ToggleA" title="Toggle FX 3 (echo)" aria-pressed="false">ON</button>
+                                </div>
+                                <div class="fx-knob-group" data-fx-slot="4">
+                                    <span class="fx-label"><span class="fx-number">4.</span><span class="fx-name">—</span></span>
+                                    <div class="knob fx-knob" id="fxSlot4A" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot4ToggleA" title="Slot 4 (no effect assigned yet)" aria-pressed="false">ON</button>
                                 </div>
                             </div>
                         </div>
@@ -358,21 +372,35 @@
 
                     <!-- Deck B Controls Column -->
                     <div class="deck-controls">
-                        <!-- FX Section -->
+                        <!-- FX Section: 4 slots (numbered like the console). Slot 1 is a working filter;
+                             the rest only store their state until their effect is implemented (see setupFx in deck.js).
+                             All four slots share the same width (set by CSS) so the knobs are evenly spaced. -->
                         <div class="fx-section">
                             <span class="section-label">FX</span>
                             <div class="fx-controls">
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxFilterB" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">FILTER</span>
+                                <div class="fx-knob-group" data-fx-slot="1" data-fx-type="filter">
+                                    <span class="fx-label"><span class="fx-number">1.</span><span class="fx-name">FILTER</span></span>
+                                    <div class="knob fx-knob" id="fxSlot1B" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot1ToggleB" title="Toggle FX 1 (filter)" aria-pressed="false">ON</button>
                                 </div>
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxFlangerB" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">FLANGER</span>
+                                <div class="fx-knob-group" data-fx-slot="2" data-fx-type="flanger">
+                                    <span class="fx-label"><span class="fx-number">2.</span><span class="fx-name">FLANGER</span></span>
+                                    <div class="knob fx-knob" id="fxSlot2B" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot2ToggleB" title="Toggle FX 2 (flanger)" aria-pressed="false">ON</button>
                                 </div>
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxEchoB" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">ECHO</span>
+                                <div class="fx-knob-group" data-fx-slot="3" data-fx-type="echo">
+                                    <span class="fx-label"><span class="fx-number">3.</span><span class="fx-name">ECHO</span></span>
+                                    <div class="knob fx-knob" id="fxSlot3B" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot3ToggleB" title="Toggle FX 3 (echo)" aria-pressed="false">ON</button>
+                                </div>
+                                <div class="fx-knob-group" data-fx-slot="4">
+                                    <span class="fx-label"><span class="fx-number">4.</span><span class="fx-name">—</span></span>
+                                    <div class="knob fx-knob" id="fxSlot4B" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot4ToggleB" title="Slot 4 (no effect assigned yet)" aria-pressed="false">ON</button>
                                 </div>
                             </div>
                         </div>

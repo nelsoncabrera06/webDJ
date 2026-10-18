@@ -5,6 +5,13 @@
  * Uses Web Audio API for EQ and mixing
  */
 
+/**
+ * FX filter (slot 1) range in Hz. Wide open the lowpass is transparent; the knob
+ * sweeps the cutoff down towards FX_FILTER_CLOSED_HZ.
+ */
+const FX_FILTER_OPEN_HZ = 22050;
+const FX_FILTER_CLOSED_HZ = 200;
+
 class AudioEngine {
     constructor() {
         this.audioContext = null;
@@ -54,6 +61,10 @@ class AudioEngine {
             eqMid: null,
             eqHigh: null,
             analyser: null,
+
+            // FX: slot 1 is a filter with real nodes; the other slots only store their state
+            fxFilter: null,
+            fxSlots: null,      // { slot: { type, node, value, enabled } }
 
             // Playback state
             isPlaying: false,
@@ -165,14 +176,30 @@ class AudioEngine {
         deck.eqHigh.frequency.value = 10000;
         deck.eqHigh.gain.value = 0;
 
+        // Create the FX filter (slot 1): a lowpass kept wide open while the FX is off
+        deck.fxFilter = this.audioContext.createBiquadFilter();
+        deck.fxFilter.type = 'lowpass';
+        deck.fxFilter.frequency.value = FX_FILTER_OPEN_HZ;
+        deck.fxFilter.Q.value = 0.7;
+
+        // FX slot state. Only slot 1 has audio nodes so far; the other slots keep their
+        // value/enabled state so the UI works and later effects can be dropped in.
+        deck.fxSlots = {
+            1: { type: 'filter', node: deck.fxFilter, value: 0, enabled: false },
+            2: { type: 'flanger', node: null, value: 0, enabled: false },
+            3: { type: 'echo', node: null, value: 0, enabled: false },
+            4: { type: null, node: null, value: 0, enabled: false }
+        };
+
         // Create analyser for volume metering
         deck.analyser = this.audioContext.createAnalyser();
         deck.analyser.fftSize = 256;
 
-        // Connect EQ chain: eqLow -> eqMid -> eqHigh -> gain -> analyser -> master
+        // Connect chain: eqLow -> eqMid -> eqHigh -> FX -> gain -> analyser -> master
         deck.eqLow.connect(deck.eqMid);
         deck.eqMid.connect(deck.eqHigh);
-        deck.eqHigh.connect(deck.gainNode);
+        deck.eqHigh.connect(deck.fxFilter);
+        deck.fxFilter.connect(deck.gainNode);
         deck.gainNode.connect(deck.analyser);
         deck.analyser.connect(this.masterGain);
 
@@ -534,6 +561,44 @@ class AudioEngine {
         }
 
         this.events.emit('eqChange', deckId, band, value);
+    }
+
+    /**
+     * Set the value (0..100) of a deck FX slot
+     */
+    setDeckFxValue(deckId, slot, value) {
+        const fxSlot = this.decks[deckId]?.fxSlots?.[slot];
+        if (!fxSlot) return;
+
+        fxSlot.value = Utils.clamp(value, 0, 100);
+        this.applyDeckFxSlot(this.decks[deckId], fxSlot);
+    }
+
+    /**
+     * Switch a deck FX slot on/off (the knob keeps its value for when it is switched back on)
+     */
+    setDeckFxEnabled(deckId, slot, enabled) {
+        const fxSlot = this.decks[deckId]?.fxSlots?.[slot];
+        if (!fxSlot) return;
+
+        fxSlot.enabled = !!enabled;
+        this.applyDeckFxSlot(this.decks[deckId], fxSlot);
+    }
+
+    /**
+     * Push the value/enabled state of an FX slot onto its audio nodes.
+     * Slots without nodes (effect not implemented yet) only keep the state.
+     */
+    applyDeckFxSlot(deck, fxSlot) {
+        if (!fxSlot.node) return;
+
+        if (fxSlot.type === 'filter') {
+            // Off or at 0 => wide open (no filtering). On => sweep down exponentially.
+            const amount = fxSlot.enabled ? fxSlot.value / 100 : 0;
+            const cutoff = FX_FILTER_OPEN_HZ * Math.pow(FX_FILTER_CLOSED_HZ / FX_FILTER_OPEN_HZ, amount);
+            // Ramped so dragging the knob sweeps instead of stepping
+            fxSlot.node.frequency.setTargetAtTime(cutoff, this.audioContext.currentTime, 0.01);
+        }
     }
 
     /**

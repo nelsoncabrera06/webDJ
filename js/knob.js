@@ -6,13 +6,22 @@
 class Knob {
     constructor(element, options = {}) {
         this.element = element;
+        // A plain `|| default` would swallow a valid 0 (data-min="0" used to become -12),
+        // so only fall back when the attribute is missing or not a number.
+        const numberOrDefault = (raw, fallback) => {
+            const parsed = parseFloat(raw);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        };
+
         this.options = {
-            min: parseFloat(element.dataset.min) || -12,
-            max: parseFloat(element.dataset.max) || 12,
-            value: parseFloat(element.dataset.value) || 0,
+            min: numberOrDefault(element.dataset.min, -12),
+            max: numberOrDefault(element.dataset.max, 12),
+            value: numberOrDefault(element.dataset.value, 0),
             step: options.step || 0.5,
             sensitivity: options.sensitivity || 0.5,
             onChange: options.onChange || (() => {}),
+            // Optional formatter for the .knob-value readout (EQ shows a signed dB, FX show 0-100)
+            formatValue: options.formatValue || null,
             ...options
         };
 
@@ -132,7 +141,9 @@ class Knob {
         // Update value display if exists
         const valueDisplay = this.element.parentElement?.querySelector('.knob-value');
         if (valueDisplay) {
-            valueDisplay.textContent = this.value > 0 ? `+${this.value}` : this.value;
+            valueDisplay.textContent = this.options.formatValue
+                ? this.options.formatValue(this.value)
+                : (this.value > 0 ? `+${this.value}` : this.value);
         }
     }
 

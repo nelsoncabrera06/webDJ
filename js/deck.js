@@ -93,6 +93,7 @@ class DeckController {
         this.setupEventListeners();
         this.setupAudioEngineListeners();
         this.setupPlatter();
+        this.setupFx();
     }
 
     /**
@@ -221,6 +222,36 @@ class DeckController {
             const x = e.clientX - rect.left;
             const position = (x / rect.width) * this.duration;
             this.audioEngine.seek(this.deckId, position);
+        });
+    }
+
+    /**
+     * Setup the FX slots: the knob of each slot sends its value (0..100) to the engine and
+     * the button under it switches the effect on/off (lit while it is on).
+     * Slot 1 is a real filter; the other slots only store their state for now.
+     */
+    setupFx() {
+        const groups = this.element.querySelectorAll('.fx-knob-group');
+
+        this.fxSlots = [...groups].map(group => {
+            const slot = parseInt(group.dataset.fxSlot, 10);
+            const type = group.dataset.fxType || null;
+            const toggleButton = group.querySelector('.fx-toggle-btn');
+
+            const knob = new Knob(group.querySelector('.fx-knob'), {
+                // FX values are 0..100, shown plain (the EQ readout adds the +/- sign)
+                formatValue: (value) => String(Math.round(value)),
+                onChange: (value) => this.audioEngine.setDeckFxValue(this.deckId, slot, value)
+            });
+
+            toggleButton.addEventListener('click', () => {
+                const enabled = !group.classList.contains('on');
+                group.classList.toggle('on', enabled);
+                toggleButton.setAttribute('aria-pressed', String(enabled));
+                this.audioEngine.setDeckFxEnabled(this.deckId, slot, enabled);
+            });
+
+            return { slot, type, element: group, knob, toggleButton };
         });
     }
 
