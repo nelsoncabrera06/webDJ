@@ -32,6 +32,33 @@
     grid-template-columns: auto 1fr;
 }
 
+/* Drop area: header + waveform + load zone, so the whole song area accepts a dropped file */
+.deck-drop-area {
+    grid-column: 1 / -1;
+    grid-row: 1 / 4;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+    position: relative;
+    min-width: 0;
+}
+
+/* Layer drawn over the whole drop area while a file is being dragged in */
+.deck-drop-area.drag-over::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 2px dashed var(--deck-a-color);
+    border-radius: var(--radius-md);
+    background: var(--deck-a-glow);
+    pointer-events: none;
+}
+
+#deckB .deck-drop-area.drag-over::after {
+    border-color: var(--deck-b-color);
+    background: var(--deck-b-glow);
+}
+
 /* Elements that span full width */
 .deck-header,
 .mini-waveform-container,
@@ -289,21 +316,6 @@ body.pitch-independent .pitch-control {
     border: 2px dashed var(--border-color);
     border-radius: var(--radius-md);
     transition: all var(--transition-normal);
-}
-
-.load-zone.drag-over {
-    border-color: var(--accent-green);
-    background: rgba(0, 255, 136, 0.1);
-}
-
-#deckA .load-zone.drag-over {
-    border-color: var(--deck-a-color);
-    background: var(--deck-a-glow);
-}
-
-#deckB .load-zone.drag-over {
-    border-color: var(--deck-b-color);
-    background: var(--deck-b-glow);
 }
 
 .load-btn {

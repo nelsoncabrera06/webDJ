@@ -47,8 +47,8 @@ class DeckController {
             currentTime: document.getElementById(`currentTime${id}`),
             totalTime: document.getElementById(`totalTime${id}`),
 
-            // Load zone
-            loadZone: document.getElementById(`loadZone${id}`),
+            // Load zone / drop area
+            dropArea: document.getElementById(`dropArea${id}`),
             fileInput: document.getElementById(`fileInput${id}`),
 
             // Tempo & Pitch
@@ -225,31 +225,45 @@ class DeckController {
     }
 
     /**
-     * Setup drag and drop for file loading
+     * Setup drag and drop for file loading.
+     * The whole song area (header + waveform + load zone) accepts the drop, not just the
+     * small load zone, so a track can be dropped anywhere over the deck's upper half.
      */
     setupDragAndDrop() {
-        const loadZone = this.elements.loadZone;
+        const dropArea = this.elements.dropArea;
+        let dragDepth = 0;
 
+        // Required so the browser allows the drop and does not open the file itself
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            loadZone.addEventListener(eventName, (e) => {
+            dropArea.addEventListener(eventName, (e) => {
                 e.preventDefault();
                 e.stopPropagation();
             });
         });
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            loadZone.addEventListener(eventName, () => {
-                loadZone.classList.add('drag-over');
-            });
+        // dragenter/dragleave also fire when moving between the children of the area
+        // (canvases, button, labels), so they are counted to avoid a flickering highlight.
+        dropArea.addEventListener('dragenter', () => {
+            dragDepth++;
+            dropArea.classList.add('drag-over');
         });
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            loadZone.addEventListener(eventName, () => {
-                loadZone.classList.remove('drag-over');
-            });
+        dropArea.addEventListener('dragover', (e) => {
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            dropArea.classList.add('drag-over');
         });
 
-        loadZone.addEventListener('drop', async (e) => {
+        dropArea.addEventListener('dragleave', () => {
+            dragDepth = Math.max(0, dragDepth - 1);
+            if (dragDepth === 0) {
+                dropArea.classList.remove('drag-over');
+            }
+        });
+
+        dropArea.addEventListener('drop', async (e) => {
+            dragDepth = 0;
+            dropArea.classList.remove('drag-over');
+
             // Check for browser file drop
             const audioFileData = e.dataTransfer.getData('application/x-audio-file');
             if (audioFileData && window.djApp && window.djApp.fileBrowser) {

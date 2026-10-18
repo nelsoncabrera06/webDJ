@@ -45,31 +45,34 @@
             <section class="decks-section">
                 <!-- Deck A -->
                 <div class="deck" id="deckA" data-deck="A">
-                    <div class="deck-header">
-                        <span class="deck-label">DECK A</span>
-                        <span class="master-badge" id="masterBadgeA">MASTER</span>
-                        <div class="track-info">
-                            <span class="track-name" id="trackNameA">No Track Loaded</span>
-                            <span class="track-bpm" id="trackBpmA">-- BPM</span>
+                    <!-- Whole song area is a drop target (header + waveform + load zone) -->
+                    <div class="deck-drop-area" id="dropAreaA">
+                        <div class="deck-header">
+                            <span class="deck-label">DECK A</span>
+                            <span class="master-badge" id="masterBadgeA">MASTER</span>
+                            <div class="track-info">
+                                <span class="track-name" id="trackNameA">No Track Loaded</span>
+                                <span class="track-bpm" id="trackBpmA">-- BPM</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Mini Waveform -->
-                    <div class="mini-waveform-container">
-                        <canvas id="waveformA" class="mini-waveform"></canvas>
-                        <div class="waveform-time">
-                            <span id="currentTimeA">0:00</span>
-                            <span id="totalTimeA">0:00</span>
+                        <!-- Mini Waveform -->
+                        <div class="mini-waveform-container">
+                            <canvas id="waveformA" class="mini-waveform"></canvas>
+                            <div class="waveform-time">
+                                <span id="currentTimeA">0:00</span>
+                                <span id="totalTimeA">0:00</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Load Button / Drop Zone (full width) -->
-                    <div class="load-zone" id="loadZoneA">
-                        <input type="file" id="fileInputA" accept="audio/*" hidden>
-                        <button class="load-btn" onclick="document.getElementById('fileInputA').click()">
-                            Load Track
-                        </button>
-                        <span class="drop-hint">or drag & drop</span>
+                        <!-- Load Button / Drop Zone (full width) -->
+                        <div class="load-zone" id="loadZoneA">
+                            <input type="file" id="fileInputA" accept="audio/*" hidden>
+                            <button class="load-btn" onclick="document.getElementById('fileInputA').click()">
+                                Load Track
+                            </button>
+                            <span class="drop-hint">or drag & drop</span>
+                        </div>
                     </div>
 
                     <!-- Deck A Controls Column -->
@@ -274,31 +277,34 @@
 
                 <!-- Deck B -->
                 <div class="deck" id="deckB" data-deck="B">
-                    <div class="deck-header">
-                        <span class="deck-label">DECK B</span>
-                        <span class="master-badge" id="masterBadgeB">MASTER</span>
-                        <div class="track-info">
-                            <span class="track-name" id="trackNameB">No Track Loaded</span>
-                            <span class="track-bpm" id="trackBpmB">-- BPM</span>
+                    <!-- Whole song area is a drop target (header + waveform + load zone) -->
+                    <div class="deck-drop-area" id="dropAreaB">
+                        <div class="deck-header">
+                            <span class="deck-label">DECK B</span>
+                            <span class="master-badge" id="masterBadgeB">MASTER</span>
+                            <div class="track-info">
+                                <span class="track-name" id="trackNameB">No Track Loaded</span>
+                                <span class="track-bpm" id="trackBpmB">-- BPM</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Mini Waveform -->
-                    <div class="mini-waveform-container">
-                        <canvas id="waveformB" class="mini-waveform"></canvas>
-                        <div class="waveform-time">
-                            <span id="currentTimeB">0:00</span>
-                            <span id="totalTimeB">0:00</span>
+                        <!-- Mini Waveform -->
+                        <div class="mini-waveform-container">
+                            <canvas id="waveformB" class="mini-waveform"></canvas>
+                            <div class="waveform-time">
+                                <span id="currentTimeB">0:00</span>
+                                <span id="totalTimeB">0:00</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Load Button / Drop Zone (full width) -->
-                    <div class="load-zone" id="loadZoneB">
-                        <input type="file" id="fileInputB" accept="audio/*" hidden>
-                        <button class="load-btn" onclick="document.getElementById('fileInputB').click()">
-                            Load Track
-                        </button>
-                        <span class="drop-hint">or drag & drop</span>
+                        <!-- Load Button / Drop Zone (full width) -->
+                        <div class="load-zone" id="loadZoneB">
+                            <input type="file" id="fileInputB" accept="audio/*" hidden>
+                            <button class="load-btn" onclick="document.getElementById('fileInputB').click()">
+                                Load Track
+                            </button>
+                            <span class="drop-hint">or drag & drop</span>
+                        </div>
                     </div>
 
                     <!-- Deck B Platter Column (on left, near mixer) -->
