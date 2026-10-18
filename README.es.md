@@ -48,13 +48,16 @@ Por políticas de seguridad del navegador, se requiere un origen seguro (`http:/
 git clone https://github.com/nelsoncabrera06/webDJ.git
 cd webDJ
 
-# 2. Iniciar un servidor local estático
-python3 -m http.server 8000
-# o con Node: npx serve .
+# 2. Iniciar el servidor de desarrollo local (Node, sin dependencias — no hay que instalar nada)
+npm run dev
 
 # 3. Abrir en un navegador basado en Chromium
 open http://localhost:8000
 ```
+
+> Cualquier servidor estático sirve (por ejemplo `python3 -m http.server 8000`). El `npm run dev`
+> incluido (ver `dev-server.mjs`) solo agrega la desactivación del caché, así nunca te queda una
+> mezcla vieja de HTML/CSS/JS mientras desarrollás. Podés cambiar el puerto con `node dev-server.mjs 8080`.
 
 1. Haz clic en **"Click to start"** para inicializar el contexto de audio del navegador.
 2. Pulsa en **"Load Track"** o arrastra pistas (`.mp3`, `.wav`, `.ogg`, `.flac`) a los Decks A y B.

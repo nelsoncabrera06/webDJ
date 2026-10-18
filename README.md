@@ -48,13 +48,16 @@ The application requires a secure context (`http://localhost` or HTTPS) to acces
 git clone https://github.com/nelsoncabrera06/webDJ.git
 cd webDJ
 
-# 2. Start any local static server
-python3 -m http.server 8000
-# or: npx serve .
+# 2. Start the local dev server (Node, zero dependencies — nothing to install)
+npm run dev
 
 # 3. Open in a Chromium browser
 open http://localhost:8000
 ```
+
+> Any static server works (for example `python3 -m http.server 8000`). The included `npm run dev`
+> (see `dev-server.mjs`) just serves with caching disabled, so you never get a stale mix of
+> old HTML/CSS/JS while developing. Change the port with `node dev-server.mjs 8080`.
 
 1. Click **"Click to start"** on the initial overlay to unlock browser audio.
 2. Click **"Load Track"** or drag audio files (`.mp3`, `.wav`, `.ogg`, `.flac`) to Deck A and Deck B.
