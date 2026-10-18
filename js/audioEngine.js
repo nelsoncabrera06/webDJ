@@ -12,6 +12,20 @@
 const FX_FILTER_OPEN_HZ = 22050;
 const FX_FILTER_CLOSED_HZ = 200;
 
+/**
+ * FX flanger (slot 2): a short delay swept by a slow LFO and mixed back with the dry
+ * signal. The knob scales the wet mix, the sweep depth, the feedback and the LFO rate;
+ * switched off, the wet mix and the feedback go to 0 and only the dry path is heard.
+ */
+const FX_FLANGER_BASE_DELAY = 0.0045;   // s, centre of the sweep
+const FX_FLANGER_DEPTH_MIN = 0.0008;    // s, LFO swing at knob 0
+const FX_FLANGER_DEPTH_MAX = 0.003;     // s, LFO swing at knob 100
+const FX_FLANGER_WET_MIN = 0.2;         // wet mix at knob 0 (keeps it audible when switched on)
+const FX_FLANGER_WET_MAX = 0.75;        // wet mix at knob 100
+const FX_FLANGER_FEEDBACK_MAX = 0.45;   // feedback at knob 100 (the "jet" character)
+const FX_FLANGER_RATE_MIN = 0.25;       // Hz, sweep speed at knob 0
+const FX_FLANGER_RATE_MAX = 1.5;        // Hz, sweep speed at knob 100
+
 class AudioEngine {
     constructor() {
         this.audioContext = null;
@@ -182,11 +196,29 @@ class AudioEngine {
         deck.fxFilter.frequency.value = FX_FILTER_OPEN_HZ;
         deck.fxFilter.Q.value = 0.7;
 
-        // FX slot state. Only slot 1 has audio nodes so far; the other slots keep their
-        // value/enabled state so the UI works and later effects can be dropped in.
+        // Create the FX flanger (slot 2): the signal keeps a dry path and is also sent
+        // through a short delay that a slow LFO sweeps (the delay feeds back into itself).
+        deck.fxFlanger = {
+            dry: this.audioContext.createGain(),
+            delay: this.audioContext.createDelay(0.05),
+            wet: this.audioContext.createGain(),
+            feedback: this.audioContext.createGain(),
+            lfo: this.audioContext.createOscillator(),
+            lfoDepth: this.audioContext.createGain()
+        };
+        deck.fxFlanger.dry.gain.value = 1;                          // the dry path is always open
+        deck.fxFlanger.delay.delayTime.value = FX_FLANGER_BASE_DELAY;
+        deck.fxFlanger.wet.gain.value = 0;                          // switched off = no wet signal
+        deck.fxFlanger.feedback.gain.value = 0;
+        deck.fxFlanger.lfo.type = 'sine';
+        deck.fxFlanger.lfo.frequency.value = FX_FLANGER_RATE_MIN;
+        deck.fxFlanger.lfoDepth.gain.value = FX_FLANGER_DEPTH_MIN;  // LFO swing, in seconds
+        deck.fxFlanger.lfo.start();                                 // always running; silent while wet = 0
+
+        // FX slot state. Slots without audio nodes only keep their value/enabled state.
         deck.fxSlots = {
             1: { type: 'filter', node: deck.fxFilter, value: 0, enabled: false },
-            2: { type: 'flanger', node: null, value: 0, enabled: false },
+            2: { type: 'flanger', node: deck.fxFlanger.wet, value: 0, enabled: false },
             3: { type: 'echo', node: null, value: 0, enabled: false },
             4: { type: null, node: null, value: 0, enabled: false }
         };
@@ -195,11 +227,22 @@ class AudioEngine {
         deck.analyser = this.audioContext.createAnalyser();
         deck.analyser.fftSize = 256;
 
-        // Connect chain: eqLow -> eqMid -> eqHigh -> FX -> gain -> analyser -> master
+        // Connect chain: eqLow -> eqMid -> eqHigh -> filter -> [dry | flanger] -> gain -> analyser -> master
         deck.eqLow.connect(deck.eqMid);
         deck.eqMid.connect(deck.eqHigh);
         deck.eqHigh.connect(deck.fxFilter);
-        deck.fxFilter.connect(deck.gainNode);
+        // Dry path (always open, so the deck is never muted by an FX)
+        deck.fxFilter.connect(deck.fxFlanger.dry);
+        deck.fxFlanger.dry.connect(deck.gainNode);
+        // Flanger path: filter -> delay -> wet -> gain, with the delay feeding back into itself
+        deck.fxFilter.connect(deck.fxFlanger.delay);
+        deck.fxFlanger.delay.connect(deck.fxFlanger.wet);
+        deck.fxFlanger.wet.connect(deck.gainNode);
+        deck.fxFlanger.delay.connect(deck.fxFlanger.feedback);
+        deck.fxFlanger.feedback.connect(deck.fxFlanger.delay);
+        // LFO that sweeps the delay time
+        deck.fxFlanger.lfo.connect(deck.fxFlanger.lfoDepth);
+        deck.fxFlanger.lfoDepth.connect(deck.fxFlanger.delay.delayTime);
         deck.gainNode.connect(deck.analyser);
         deck.analyser.connect(this.masterGain);
 
@@ -592,12 +635,26 @@ class AudioEngine {
     applyDeckFxSlot(deck, fxSlot) {
         if (!fxSlot.node) return;
 
+        const amount = fxSlot.value / 100;
+        const on = fxSlot.enabled;
+        // Ramped so dragging the knob (or the button) sweeps instead of stepping
+        const ramp = (param, value) => param.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+
         if (fxSlot.type === 'filter') {
             // Off or at 0 => wide open (no filtering). On => sweep down exponentially.
-            const amount = fxSlot.enabled ? fxSlot.value / 100 : 0;
-            const cutoff = FX_FILTER_OPEN_HZ * Math.pow(FX_FILTER_CLOSED_HZ / FX_FILTER_OPEN_HZ, amount);
-            // Ramped so dragging the knob sweeps instead of stepping
-            fxSlot.node.frequency.setTargetAtTime(cutoff, this.audioContext.currentTime, 0.01);
+            const filterAmount = on ? amount : 0;
+            ramp(fxSlot.node.frequency, FX_FILTER_OPEN_HZ * Math.pow(FX_FILTER_CLOSED_HZ / FX_FILTER_OPEN_HZ, filterAmount));
+            return;
+        }
+
+        if (fxSlot.type === 'flanger') {
+            const { wet, feedback, lfo, lfoDepth } = deck.fxFlanger;
+            // Switched on, even at 0 the flanger is audible (a slow, shallow sweep); the knob
+            // adds wet mix and feedback up to a full "jet"
+            ramp(wet.gain, on ? FX_FLANGER_WET_MIN + amount * (FX_FLANGER_WET_MAX - FX_FLANGER_WET_MIN) : 0);
+            ramp(feedback.gain, on ? amount * FX_FLANGER_FEEDBACK_MAX : 0);
+            ramp(lfoDepth.gain, FX_FLANGER_DEPTH_MIN + amount * (FX_FLANGER_DEPTH_MAX - FX_FLANGER_DEPTH_MIN));
+            ramp(lfo.frequency, FX_FLANGER_RATE_MIN + amount * (FX_FLANGER_RATE_MAX - FX_FLANGER_RATE_MIN));
         }
     }
 
