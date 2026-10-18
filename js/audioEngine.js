@@ -17,14 +17,17 @@ const FX_FILTER_CLOSED_HZ = 200;
  * signal. The knob scales the wet mix, the sweep depth, the feedback and the LFO rate;
  * switched off, the wet mix and the feedback go to 0 and only the dry path is heard.
  */
-const FX_FLANGER_BASE_DELAY = 0.0045;   // s, centre of the sweep
+const FX_FLANGER_BASE_DELAY = 0.005;    // s, centre of the sweep (must stay above DEPTH_MAX so the
+                                        // delay time never goes negative, which would clamp the sweep)
 const FX_FLANGER_DEPTH_MIN = 0.0008;    // s, LFO swing at knob 0
-const FX_FLANGER_DEPTH_MAX = 0.003;     // s, LFO swing at knob 100
-const FX_FLANGER_WET_MIN = 0.2;         // wet mix at knob 0 (keeps it audible when switched on)
-const FX_FLANGER_WET_MAX = 0.75;        // wet mix at knob 100
-const FX_FLANGER_FEEDBACK_MAX = 0.45;   // feedback at knob 100 (the "jet" character)
+const FX_FLANGER_DEPTH_MAX = 0.0045;    // s, LFO swing at knob 100 (sweeps the delay 0.5 to 9.5 ms)
+const FX_FLANGER_WET_MIN = 0.25;        // wet mix at knob 0 (keeps it audible when switched on)
+const FX_FLANGER_WET_MAX = 1;           // wet mix at knob 100 (cancels the dry signal at the notches)
+const FX_FLANGER_FEEDBACK_MAX = 0.4;    // feedback at knob 100. Kept moderate on purpose: more feedback
+                                        // fills the notches (louder but flatter); 0.4 keeps the deepest
+                                        // sweep while still adding resonance
 const FX_FLANGER_RATE_MIN = 0.25;       // Hz, sweep speed at knob 0
-const FX_FLANGER_RATE_MAX = 1.5;        // Hz, sweep speed at knob 100
+const FX_FLANGER_RATE_MAX = 2;          // Hz, sweep speed at knob 100
 
 class AudioEngine {
     constructor() {
