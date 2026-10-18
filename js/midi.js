@@ -61,9 +61,10 @@ class MIDIController {
                 eqHigh: 99,    // CC
                 eqMid: 100,    // CC
                 eqLow: 101,    // CC
-                // FX section: the numbers of the right-hand deck (CH1) are not measured yet.
-                // Once they are read from the console log they go here as fxKnobs/fxButtons
-                // and the handlers pick them up automatically.
+                // FX section: same layout as deck A, shifted +32 (measured on the
+                // right-hand deck). Knob = FX slot amount, button = on/off.
+                fxKnobs: [48, 49, 50, 51],
+                fxButtons: [48, 49, 50, 51],
                 // Hot Cues (Notes)
                 hotCue1: 66,
                 hotCue2: 67,
@@ -280,6 +281,11 @@ class MIDIController {
             } else if (note === this.mapping.deckB.loopToggle) {
                 this.audioEngine.toggleLoop('B');
             }
+            // FX on/off buttons (one per FX slot)
+            else {
+                const fxSlot = this.findFxSlot(this.mapping.deckB.fxButtons, note);
+                if (fxSlot) this.toggleFx('B', fxSlot);
+            }
         }
     }
 
@@ -356,6 +362,11 @@ class MIDIController {
                 const db = this.ccToDb(value);
                 this.audioEngine.setEQ('B', 'low', db);
                 this.updateKnob('eqLowB', db);
+            }
+            // FX knobs (one per FX slot)
+            else {
+                const fxSlot = this.findFxSlot(this.mapping.deckB.fxKnobs, controller);
+                if (fxSlot) this.setFxValue('B', fxSlot, value);
             }
         }
     }
