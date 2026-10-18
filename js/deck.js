@@ -245,14 +245,48 @@ class DeckController {
             });
 
             toggleButton.addEventListener('click', () => {
-                const enabled = !group.classList.contains('on');
-                group.classList.toggle('on', enabled);
-                toggleButton.setAttribute('aria-pressed', String(enabled));
-                this.audioEngine.setDeckFxEnabled(this.deckId, slot, enabled);
+                this.setFxEnabled(slot, !group.classList.contains('on'));
             });
 
             return { slot, type, element: group, knob, toggleButton };
         });
+    }
+
+    /**
+     * Switch an FX slot on/off and reflect it on screen. Shared by the on-screen button and
+     * the MIDI FX buttons, so both always drive the same state.
+     */
+    setFxEnabled(slot, enabled) {
+        const fx = this.fxSlots?.find(f => f.slot === slot);
+        if (!fx) return;
+
+        fx.element.classList.toggle('on', enabled);
+        fx.toggleButton.setAttribute('aria-pressed', String(enabled));
+        this.audioEngine.setDeckFxEnabled(this.deckId, slot, enabled);
+    }
+
+    /**
+     * Toggle an FX slot from outside the UI (MIDI on/off button).
+     */
+    toggleFxSlot(slot) {
+        const fx = this.fxSlots?.find(f => f.slot === slot);
+        if (!fx) return;
+
+        this.setFxEnabled(slot, !fx.element.classList.contains('on'));
+    }
+
+    /**
+     * Move an FX knob from outside the UI (MIDI knob). Knob.setValue() redraws it and, through
+     * its onChange, updates the engine; for a slot without a knob the engine is set directly.
+     */
+    setFxKnobValue(slot, value) {
+        const fx = this.fxSlots?.find(f => f.slot === slot);
+        if (!fx) {
+            this.audioEngine.setDeckFxValue(this.deckId, slot, value);
+            return;
+        }
+
+        fx.knob.setValue(value);
     }
 
     /**
