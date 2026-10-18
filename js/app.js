@@ -13,6 +13,7 @@ class DJMixApp {
         this.autoMixer = null;
         this.fileBrowser = null;
         this.playlist = null;
+        this.sampleBrowser = null;
 
         this.isInitialized = false;
     }
@@ -29,6 +30,9 @@ class DJMixApp {
         // Initialize on first user interaction
         await this.initAudioContext();
 
+        // Preload bundled one-shots before the pads are used.
+        await this.audioEngine.loadSamples();
+
         // Create controllers
         this.deckA = new DeckController('A', this.audioEngine);
         this.deckB = new DeckController('B', this.audioEngine);
@@ -41,6 +45,7 @@ class DJMixApp {
         this.fileBrowser = new FileBrowser(this.audioEngine);
         this.playlist = new Playlist(this.audioEngine, this.fileBrowser);
         this.fileBrowser.setPlaylist(this.playlist);
+        this.sampleBrowser = new SampleBrowser(this.audioEngine, this.fileBrowser);
 
         // Setup keyboard shortcuts
         this.setupKeyboardShortcuts();

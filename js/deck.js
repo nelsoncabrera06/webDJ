@@ -81,7 +81,11 @@ class DeckController {
             // Loop controls
             loopHalveBtn: document.getElementById(`loopHalve${id}`),
             loopToggleBtn: document.getElementById(`loopToggle${id}`),
-            loopDoubleBtn: document.getElementById(`loopDouble${id}`)
+            loopDoubleBtn: document.getElementById(`loopDouble${id}`),
+
+            // One-shot sample pads
+            padBtns: Array.from({ length: 8 }, (_, index) =>
+                document.getElementById(`pad${id}${index + 1}`))
         };
     }
 
@@ -214,6 +218,34 @@ class DeckController {
             this.audioEngine.doubleLoop(this.deckId);
         });
 
+        this.elements.padBtns.forEach((button, index) => {
+            if (!button) return;
+            button.textContent = String(index + 1);
+            this.updatePadSampleLabel(button, index);
+            button.addEventListener('click', () => {
+                if (!this.audioEngine.playPad(this.deckId, index)) return;
+                button.classList.add('active');
+                clearTimeout(button.activeTimer);
+                button.activeTimer = setTimeout(() => button.classList.remove('active'), 140);
+            });
+
+            button.addEventListener('dragover', (event) => {
+                if (!event.dataTransfer.types.includes('application/x-webdj-sample')) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+                button.classList.add('drop-target');
+            });
+            button.addEventListener('dragleave', () => button.classList.remove('drop-target'));
+            button.addEventListener('drop', (event) => {
+                event.preventDefault();
+                button.classList.remove('drop-target');
+                const sampleIndex = Number(event.dataTransfer.getData('application/x-webdj-sample'));
+                if (this.audioEngine.assignSampleToPad(this.deckId, index, sampleIndex)) {
+                    this.updatePadSampleLabel(button, index);
+                }
+            });
+        });
+
         // Mini waveform click to seek
         this.elements.miniWaveformContainer.addEventListener('click', (e) => {
             if (this.duration <= 0) return;
@@ -223,6 +255,13 @@ class DeckController {
             const position = (x / rect.width) * this.duration;
             this.audioEngine.seek(this.deckId, position);
         });
+    }
+
+    updatePadSampleLabel(button, padIndex) {
+        const sampleIndex = this.audioEngine.decks[this.deckId].padSampleAssignments[padIndex];
+        const sampleName = this.audioEngine.sampleLibrary[sampleIndex]?.name || 'Sin sample';
+        button.title = `Pad ${padIndex + 1}: ${sampleName} · arrastrá un sample para reemplazarlo`;
+        button.setAttribute('aria-label', `Pad ${padIndex + 1}, sample ${sampleName}`);
     }
 
     /**
@@ -358,6 +397,12 @@ class DeckController {
         this.audioEngine.on('positionUpdate', (deckId, position, duration) => {
             if (deckId !== this.deckId) return;
             this.updatePosition(position, duration);
+        });
+
+        this.audioEngine.on('sampleRemoved', () => {
+            this.elements.padBtns.forEach((button, index) => {
+                if (button) this.updatePadSampleLabel(button, index);
+            });
         });
 
         // Transport state changes (single merged play/pause button)

@@ -812,6 +812,179 @@ class Playlist {
     }
 }
 
+/** Bundled sample list: click to preview, or drag a sample onto a deck pad. */
+class SampleBrowser {
+    constructor(audioEngine, fileBrowser) {
+        this.audioEngine = audioEngine;
+        this.fileBrowser = fileBrowser;
+        this.content = document.getElementById('samplesContent');
+        this.status = document.getElementById('samplesStatus');
+        if (!this.content) return;
+        this.panel = this.content.closest('.samples-panel');
+        this.header = this.panel.querySelector('.samples-header');
+        this.collapseButton = document.getElementById('samplesCollapseBtn');
+        this.trashButton = document.getElementById('samplesTrashBtn');
+        this.collapseButton?.addEventListener('click', () => {
+            this.setCollapsed(!this.panel.classList.contains('collapsed'));
+        });
+        this.setupTrashDropZone();
+        this.setupDropZone();
+        this.render();
+    }
+
+    setupTrashDropZone() {
+        if (!this.trashButton) return;
+
+        this.header.addEventListener('dragover', (event) => {
+            if (!Array.from(event.dataTransfer.types).includes('application/x-webdj-custom-sample')) return;
+            if (event.target.closest('#samplesCollapseBtn')) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            this.header.classList.add('drag-over');
+        });
+        this.header.addEventListener('dragleave', (event) => {
+            if (!this.header.contains(event.relatedTarget)) {
+                this.header.classList.remove('drag-over');
+            }
+        });
+        this.header.addEventListener('drop', (event) => {
+            if (event.target.closest('#samplesCollapseBtn')) return;
+            const sampleIndex = Number(event.dataTransfer.getData('application/x-webdj-custom-sample'));
+            if (!Number.isInteger(sampleIndex)) return;
+            event.preventDefault();
+            this.header.classList.remove('drag-over');
+            const removedSample = this.audioEngine.removeCustomSample(sampleIndex);
+            if (!removedSample) return;
+            this.render();
+            this.showStatus(`${removedSample.name}: eliminado.`);
+        });
+    }
+
+    setupDropZone() {
+        this.content.addEventListener('dragover', (event) => {
+            const types = Array.from(event.dataTransfer.types);
+            if (!types.includes('application/x-audio-file') && !types.includes('Files')) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            this.content.classList.add('drag-over');
+        });
+
+        this.content.addEventListener('dragleave', (event) => {
+            if (!this.content.contains(event.relatedTarget)) {
+                this.content.classList.remove('drag-over');
+            }
+        });
+
+        this.content.addEventListener('drop', async (event) => {
+            const filePayload = event.dataTransfer.getData('application/x-audio-file');
+            const nativeFiles = Array.from(event.dataTransfer.files || []);
+            if (!filePayload && nativeFiles.length === 0) return;
+
+            event.preventDefault();
+            this.content.classList.remove('drag-over');
+            let files = nativeFiles;
+
+            if (filePayload && this.fileBrowser) {
+                const fileData = this.fileBrowser.getDraggedFileData();
+                const file = fileData ? await this.fileBrowser.getFileObject(fileData) : null;
+                files = file ? [file] : [];
+            }
+
+            const audioFiles = files.filter(file => this.isAudioFile(file));
+            if (audioFiles.length === 0) {
+                this.showStatus('No se pudo leer ese audio.', true);
+                return;
+            }
+
+            for (const file of audioFiles) {
+                this.showStatus(`Cargando ${file.name}…`);
+                try {
+                    const sampleIndex = await this.audioEngine.addSampleFromFile(file);
+                    const sample = this.audioEngine.sampleLibrary[sampleIndex];
+                    this.render();
+                    const duration = this.audioEngine.sampleBuffers[sampleIndex].duration;
+                    this.showStatus(sample.trimmed
+                        ? `${sample.name}: agregado (máximo ${SAMPLE_MAX_DURATION_SECONDS} s).`
+                        : `${sample.name}: agregado (${duration.toFixed(1)} s).`);
+                } catch (error) {
+                    console.warn('Could not add sample:', error);
+                    this.showStatus(`No se pudo cargar ${file.name}.`, true);
+                }
+            }
+        });
+    }
+
+    isAudioFile(file) {
+        const audioExtensions = ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.wma'];
+        const name = file.name.toLowerCase();
+        return (file.type || '').startsWith('audio/') || audioExtensions.some(extension => name.endsWith(extension));
+    }
+
+    showStatus(message, isError = false) {
+        if (!this.status) return;
+        this.status.textContent = message;
+        this.status.classList.toggle('error', isError);
+        clearTimeout(this.statusTimer);
+        this.statusTimer = setTimeout(() => {
+            this.status.textContent = '';
+            this.status.classList.remove('error');
+        }, 5000);
+    }
+
+    setCollapsed(collapsed) {
+        this.panel.classList.toggle('collapsed', collapsed);
+        this.collapseButton.textContent = collapsed ? '▶' : '◀';
+        this.collapseButton.setAttribute('aria-expanded', String(!collapsed));
+        this.collapseButton.setAttribute('aria-label', collapsed
+            ? 'Mostrar panel de samples'
+            : 'Ocultar panel de samples');
+        this.collapseButton.title = collapsed ? 'Mostrar samples' : 'Ocultar samples';
+    }
+
+    render() {
+        this.content.replaceChildren();
+        this.audioEngine.sampleLibrary.forEach((sample, sampleIndex) => {
+            const item = document.createElement('button');
+            item.className = 'sample-item';
+            item.type = 'button';
+            item.draggable = true;
+            item.title = 'Click para escuchar · arrastrá a un pad para asignar';
+
+            const grip = document.createElement('span');
+            grip.className = 'sample-grip';
+            grip.setAttribute('aria-hidden', 'true');
+            grip.textContent = '⠿';
+            const name = document.createElement('span');
+            name.className = 'sample-name';
+            name.textContent = sample.name;
+            item.append(grip, name);
+            this.content.append(item);
+
+            item.addEventListener('click', () => {
+                if (!this.audioEngine.playSample('A', sampleIndex)) return;
+                item.classList.add('previewing');
+                clearTimeout(item.previewTimer);
+                item.previewTimer = setTimeout(() => item.classList.remove('previewing'), 140);
+            });
+            item.addEventListener('dragstart', (event) => {
+                event.dataTransfer.setData('application/x-webdj-sample', String(sampleIndex));
+                event.dataTransfer.setData('text/plain', String(sampleIndex));
+                event.dataTransfer.effectAllowed = sample.custom ? 'copyMove' : 'copy';
+                item.classList.add('dragging');
+                if (sample.custom) {
+                    event.dataTransfer.setData('application/x-webdj-custom-sample', String(sampleIndex));
+                    this.panel.classList.add('dragging-custom-sample');
+                }
+            });
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                this.panel.classList.remove('dragging-custom-sample');
+                this.header.classList.remove('drag-over');
+            });
+        });
+    }
+}
+
 /**
  * Browser Section Resizer
  * Allows resizing the browser section by dragging the top handle
@@ -951,5 +1124,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Export
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { FileBrowser, Playlist, BrowserResizer };
+    module.exports = { FileBrowser, Playlist, SampleBrowser, BrowserResizer };
 }

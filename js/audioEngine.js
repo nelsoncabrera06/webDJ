@@ -49,11 +49,24 @@ const FX_ECHO_DAMP_HZ = 250;            // the repeats lose their low end, so a 
  * leave resume() pending; a real click resumes in a few tens of milliseconds.
  */
 const AUDIO_RESUME_TIMEOUT_MS = 600;
+const SAMPLE_LIBRARY = [
+    { name: 'Kick', file: 'kick.wav' },
+    { name: 'Snare', file: 'snare.wav' },
+    { name: 'Clap', file: 'clap.wav' },
+    { name: 'Hat', file: 'hat.wav' },
+    { name: 'Subdrop', file: 'subdrop.wav' },
+    { name: 'Riser', file: 'riser.wav' },
+    { name: 'Laser', file: 'laser.wav' },
+    { name: 'Stab', file: 'stab.wav' }
+];
+const SAMPLE_MAX_DURATION_SECONDS = 30;
 
 class AudioEngine {
     constructor() {
         this.audioContext = null;
         this.masterGain = null;
+        this.sampleLibrary = SAMPLE_LIBRARY.map(sample => ({ ...sample }));
+        this.sampleBuffers = [];
 
         // Deck states
         this.decks = {
@@ -150,6 +163,9 @@ class AudioEngine {
             // Original audio buffer for waveform/BPM
             audioBuffer: null,
 
+            // Sample assigned to each performance pad (sample library index)
+            padSampleAssignments: SAMPLE_LIBRARY.map((_, index) => index),
+
             // Loop state
             loopEnabled: false,
             loopStart: 0,        // En segundos
@@ -198,6 +214,101 @@ class AudioEngine {
 
         await this.ensureRunning();
         console.log('Audio Engine initialized (HTML5 Audio mode)');
+    }
+
+    /** Load the bundled one-shot samples for the eight performance pads. */
+    async loadSamples() {
+        const results = await Promise.allSettled(this.sampleLibrary.map(async (sample) => {
+            const response = await fetch(`samples/${sample.file}`);
+            if (!response.ok) throw new Error(`Could not load ${sample.file}`);
+            return this.audioContext.decodeAudioData(await response.arrayBuffer());
+        }));
+
+        this.sampleBuffers = results.map((result, index) => {
+            if (result.status === 'fulfilled') {
+                this.sampleLibrary[index].duration = result.value.duration;
+                return result.value;
+            }
+            console.warn(`Sample ${this.sampleLibrary[index].name} could not be loaded:`, result.reason);
+            return null;
+        });
+    }
+
+    async addSampleFromFile(file) {
+        if (!file || !this.audioContext) throw new Error('No se pudo leer el audio.');
+
+        const decoded = await this.audioContext.decodeAudioData(await file.arrayBuffer());
+        const frameCount = Math.min(
+            decoded.length,
+            Math.floor(decoded.sampleRate * SAMPLE_MAX_DURATION_SECONDS)
+        );
+        const sampleBuffer = frameCount === decoded.length
+            ? decoded
+            : this.audioContext.createBuffer(decoded.numberOfChannels, frameCount, decoded.sampleRate);
+
+        if (sampleBuffer !== decoded) {
+            for (let channel = 0; channel < decoded.numberOfChannels; channel++) {
+                sampleBuffer.copyToChannel(decoded.getChannelData(channel).subarray(0, frameCount), channel);
+            }
+        }
+
+        const name = Utils.getFileNameWithoutExt(file.name);
+        const index = this.sampleLibrary.length;
+        this.sampleLibrary.push({
+            name,
+            file: null,
+            duration: sampleBuffer.duration,
+            custom: true,
+            trimmed: decoded.duration > SAMPLE_MAX_DURATION_SECONDS
+        });
+        this.sampleBuffers.push(sampleBuffer);
+        return index;
+    }
+
+    removeCustomSample(sampleIndex) {
+        const sample = this.sampleLibrary[sampleIndex];
+        if (!sample?.custom) return null;
+
+        this.sampleLibrary.splice(sampleIndex, 1);
+        this.sampleBuffers.splice(sampleIndex, 1);
+
+        for (const deck of Object.values(this.decks)) {
+            deck.padSampleAssignments = deck.padSampleAssignments.map((assignedIndex, padIndex) => {
+                if (assignedIndex === sampleIndex) return padIndex;
+                return assignedIndex > sampleIndex ? assignedIndex - 1 : assignedIndex;
+            });
+        }
+
+        this.events.emit('sampleRemoved', sampleIndex, sample);
+        return sample;
+    }
+
+    /** Play a one-shot through the deck's EQ, FX, volume and crossfader path. */
+    playSample(deckId, sampleIndex) {
+        const deck = this.decks[deckId];
+        const buffer = this.sampleBuffers[sampleIndex];
+        if (!deck || !deck.eqLow || !buffer) return false;
+
+        const source = this.audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(deck.eqLow);
+        source.start();
+        return true;
+    }
+
+    playPad(deckId, padIndex) {
+        const deck = this.decks[deckId];
+        if (!deck || padIndex < 0 || padIndex >= deck.padSampleAssignments.length) return false;
+        return this.playSample(deckId, deck.padSampleAssignments[padIndex]);
+    }
+
+    assignSampleToPad(deckId, padIndex, sampleIndex) {
+        const deck = this.decks[deckId];
+        if (!deck || !this.sampleBuffers[sampleIndex] || padIndex < 0 ||
+            padIndex >= deck.padSampleAssignments.length) return false;
+        deck.padSampleAssignments[padIndex] = sampleIndex;
+        this.events.emit('padSampleAssigned', deckId, padIndex, sampleIndex);
+        return true;
     }
 
     /**

@@ -896,14 +896,16 @@ body.pitch-independent .pitch-control {
 
 /* Pad colors when active/set */
 #deckA .pad-btn.active,
-#deckA .pad-btn:active {
+#deckA .pad-btn:active,
+#deckA .pad-btn.drop-target {
     background: var(--deck-a-color);
     border-color: var(--deck-a-color);
     color: var(--bg-primary);
 }
 
 #deckB .pad-btn.active,
-#deckB .pad-btn:active {
+#deckB .pad-btn:active,
+#deckB .pad-btn.drop-target {
     background: var(--deck-b-color);
     border-color: var(--deck-b-color);
     color: var(--bg-primary);

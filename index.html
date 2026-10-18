@@ -471,6 +471,8 @@
                     <span>BROWSER</span>
                     <span class="collapsed-separator">|</span>
                     <span>PLAYLIST</span>
+                    <span class="collapsed-separator">|</span>
+                    <span>SAMPLES</span>
                 </div>
 
                 <!-- Browser Content -->
@@ -519,6 +521,23 @@
                             <span>Drag tracks here to add to playlist</span>
                         </div>
                     </div>
+                </div>
+
+                <!-- Samples -->
+                <div class="samples-panel">
+                    <div class="browser-header samples-header">
+                        <span class="browser-title">SAMPLES</span>
+                        <button class="samples-trash-btn" id="samplesTrashBtn" type="button"
+                                aria-label="Eliminar sample" title="Soltá acá para eliminar sample">
+                            <svg viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M2.5 4h11M6 4V2.5h4V4m2.5 0-.6 9.5H4.1L3.5 4m2.7 2.2v4.8m3.6-4.8v4.8" />
+                            </svg>
+                        </button>
+                        <button class="samples-collapse-btn" id="samplesCollapseBtn" type="button"
+                                aria-label="Ocultar panel de samples" aria-expanded="true" title="Ocultar samples">◀</button>
+                    </div>
+                    <div class="samples-status" id="samplesStatus" aria-live="polite"></div>
+                    <div class="samples-content" id="samplesContent" aria-label="Samples disponibles"></div>
                 </div>
                 </div><!-- /browser-content -->
             </section>
