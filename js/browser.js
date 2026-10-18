@@ -491,7 +491,7 @@ class Playlist {
 
         // Auto-load state
         this.autoLoadEnabled = localStorage.getItem('playlistAutoLoad') === 'true';
-        this.autoLoadDelay = 10000; // 10 seconds
+        this.autoLoadDelay = 2000; // 2 seconds
         this.autoLoadTimers = { A: null, B: null };
         this.deckWasPlaying = { A: false, B: false };
 

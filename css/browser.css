@@ -339,6 +339,10 @@
     cursor: pointer;
 }
 
+.playlist-panel .browser-header {
+    column-gap: var(--spacing-sm);
+}
+
 .playlist-collapse-btn:hover {
     color: var(--text-primary);
 }
