@@ -472,8 +472,9 @@ body.pitch-independent .pitch-control {
     border-color: var(--accent-green);
 }
 
-/* Pause Button */
-.pause-btn:hover, .pause-btn.active {
+/* Merged play/pause button in its paused state: yellow + ⏸ (same colour as the old pause button).
+   The :hover case is explicit so hovering a paused button stays yellow instead of turning green. */
+.play-btn.paused, .play-btn.paused:hover {
     background: var(--accent-yellow);
     color: var(--bg-primary);
     border-color: var(--accent-yellow);

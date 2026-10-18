@@ -59,8 +59,7 @@ class DeckController {
             pitchValue: document.getElementById(`pitchValue${id}`),
 
             // Transport
-            playBtn: document.getElementById(`play${id}`),
-            pauseBtn: document.getElementById(`pause${id}`),
+            playPauseBtn: document.getElementById(`playPause${id}`),
             stopBtn: document.getElementById(`stop${id}`),
             cueBtn: document.getElementById(`cue${id}`),
             syncBtn: document.getElementById(`sync${id}`),
@@ -147,8 +146,7 @@ class DeckController {
         this.setupDragAndDrop();
 
         // Transport buttons
-        this.elements.playBtn.addEventListener('click', () => this.play());
-        this.elements.pauseBtn.addEventListener('click', () => this.pause());
+        this.elements.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
         this.elements.stopBtn.addEventListener('click', () => this.stop());
         this.elements.cueBtn.addEventListener('click', () => this.cue());
         this.elements.syncBtn.addEventListener('click', () => this.sync());
@@ -283,23 +281,20 @@ class DeckController {
             this.updatePosition(position, duration);
         });
 
-        // Play state changes
+        // Transport state changes (single merged play/pause button)
         this.audioEngine.on('play', (deckId) => {
             if (deckId !== this.deckId) return;
-            this.elements.playBtn.classList.add('active');
-            this.elements.pauseBtn.classList.remove('active');
+            this.setTransportState('playing');
         });
 
         this.audioEngine.on('pause', (deckId) => {
             if (deckId !== this.deckId) return;
-            this.elements.pauseBtn.classList.add('active');
-            this.elements.playBtn.classList.remove('active');
+            this.setTransportState('paused');
         });
 
         this.audioEngine.on('stop', (deckId) => {
             if (deckId !== this.deckId) return;
-            this.elements.playBtn.classList.remove('active');
-            this.elements.pauseBtn.classList.remove('active');
+            this.setTransportState('stopped');
             this.updatePosition(this.audioEngine.decks[deckId].cuePoint, this.duration);
         });
 
@@ -460,8 +455,31 @@ class DeckController {
     }
 
     /**
+     * Reflect the transport state on the merged play/pause button.
+     * playing -> green + ▶   paused -> yellow + ⏸   stopped -> neutral + ▶
+     * Driven by the engine events so keyboard, MIDI, AutoMixer and track end stay in sync.
+     */
+    setTransportState(state) {
+        const btn = this.elements.playPauseBtn;
+        btn.classList.toggle('active', state === 'playing');
+        btn.classList.toggle('paused', state === 'paused');
+        btn.querySelector('.icon').textContent = state === 'paused' ? '⏸' : '▶';
+    }
+
+    /**
      * Transport controls
      */
+    togglePlayPause() {
+        // Read the engine state instead of a local flag so the merged button stays
+        // correct even when playback started/stopped from keyboard, MIDI or AutoMixer.
+        const deck = this.audioEngine.decks[this.deckId];
+        if (deck.isPlaying && !deck.isPaused) {
+            this.pause();
+        } else {
+            this.play();
+        }
+    }
+
     play() {
         this.audioEngine.play(this.deckId);
     }
