@@ -43,6 +43,13 @@ const FX_ECHO_FEEDBACK_MIN = 0.15;      // feedback at knob 0 (a single, clearly
 const FX_ECHO_FEEDBACK_MAX = 0.55;      // feedback at knob 100, kept below self-oscillation
 const FX_ECHO_DAMP_HZ = 250;            // the repeats lose their low end, so a long tail stays tight
 
+/**
+ * How long to wait for a blocked AudioContext to report 'running' before giving up.
+ * Only relevant on the very first attempt (no user gesture yet), where Chrome may
+ * leave resume() pending; a real click resumes in a few tens of milliseconds.
+ */
+const AUDIO_RESUME_TIMEOUT_MS = 600;
+
 class AudioEngine {
     constructor() {
         this.audioContext = null;
@@ -158,10 +165,22 @@ class AudioEngine {
     }
 
     /**
-     * Initialize audio context (must be called after user interaction)
+     * Initialize audio context (must be called after user interaction).
+     *
+     * Chrome does NOT throw when an AudioContext is created without a user
+     * gesture: it returns a context in 'suspended' state that renders silence.
+     * If init() returned normally in that case, the app would hide the
+     * "Click to start" overlay and then playing a deck from MIDI (a MIDI message
+     * is not a user gesture) would stay muted with the button looking green.
+     * So init() only succeeds when the context is really running.
      */
     async init() {
-        if (this.audioContext) return;
+        // A previous attempt may have already created the context (suspended).
+        // Retrying after the click must resume it, never bail out early.
+        if (this.audioContext) {
+            await this.ensureRunning();
+            return;
+        }
 
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -177,7 +196,41 @@ class AudioEngine {
         // Start position update loop
         this.startPositionLoop();
 
+        await this.ensureRunning();
         console.log('Audio Engine initialized (HTML5 Audio mode)');
+    }
+
+    /**
+     * Make sure the AudioContext is actually running.
+     *
+     * resume() only succeeds inside a real user gesture (a click or a keypress;
+     * Web MIDI messages do not count), so outside one the context stays
+     * 'suspended'. Throwing here is what keeps initAudioContext() waiting for
+     * that click with the start overlay visible.
+     *
+     * Careful: resume() is NOT awaited blindly. While the page has no user
+     * gesture Chrome can leave that promise pending forever, and an awaited
+     * promise that never settles would hang init() before initAudioContext()
+     * attaches the click listener - i.e. the overlay would stop responding.
+     * Raced against a timeout, a blocked context reports failure and a real
+     * click still resumes instantly (it takes a few tens of ms).
+     */
+    async ensureRunning() {
+        const ctx = this.audioContext;
+        if (ctx.state === 'running') return;
+
+        try {
+            await Promise.race([
+                ctx.resume(),
+                new Promise((resolve) => setTimeout(resolve, AUDIO_RESUME_TIMEOUT_MS))
+            ]);
+        } catch (err) {
+            console.info('AudioContext.resume() rejected:', err);
+        }
+
+        if (ctx.state !== 'running') {
+            throw new Error(`AudioContext is "${ctx.state}" - needs a user gesture`);
+        }
     }
 
     /**

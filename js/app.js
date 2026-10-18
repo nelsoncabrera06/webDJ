@@ -74,7 +74,10 @@ class DJMixApp {
             }
         };
 
-        // Try to init immediately (might work if called from a user event)
+        // Try to start audio right away: it only works if the browser already
+        // allows autoplay. Otherwise init() fails fast (it never hangs on the
+        // autoplay-blocked resume) and the overlay below stays visible until the
+        // user clicks, which is the gesture Chrome is waiting for.
         try {
             await this.audioEngine.init();
             hideOverlay();
