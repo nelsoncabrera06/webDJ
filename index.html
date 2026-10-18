@@ -45,50 +45,67 @@
             <section class="decks-section">
                 <!-- Deck A -->
                 <div class="deck" id="deckA" data-deck="A">
-                    <div class="deck-header">
-                        <span class="deck-label">DECK A</span>
-                        <span class="master-badge" id="masterBadgeA">MASTER</span>
-                        <div class="track-info">
-                            <span class="track-name" id="trackNameA">No Track Loaded</span>
-                            <span class="track-bpm" id="trackBpmA">-- BPM</span>
+                    <!-- Whole song area is a drop target (header + waveform + load zone) -->
+                    <div class="deck-drop-area" id="dropAreaA">
+                        <div class="deck-header">
+                            <span class="deck-label">DECK A</span>
+                            <span class="master-badge" id="masterBadgeA">MASTER</span>
+                            <div class="track-info">
+                                <span class="track-name" id="trackNameA">No Track Loaded</span>
+                                <span class="track-bpm" id="trackBpmA">-- BPM</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Mini Waveform -->
-                    <div class="mini-waveform-container">
-                        <canvas id="waveformA" class="mini-waveform"></canvas>
-                        <div class="waveform-time">
-                            <span id="currentTimeA">0:00</span>
-                            <span id="totalTimeA">0:00</span>
+                        <!-- Mini Waveform -->
+                        <div class="mini-waveform-container">
+                            <canvas id="waveformA" class="mini-waveform"></canvas>
+                            <div class="waveform-time">
+                                <span id="currentTimeA">0:00</span>
+                                <span id="totalTimeA">0:00</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Load Button / Drop Zone (full width) -->
-                    <div class="load-zone" id="loadZoneA">
-                        <input type="file" id="fileInputA" accept="audio/*" hidden>
-                        <button class="load-btn" onclick="document.getElementById('fileInputA').click()">
-                            Load Track
-                        </button>
-                        <span class="drop-hint">or drag & drop</span>
+                        <!-- Load Button / Drop Zone (full width) -->
+                        <div class="load-zone" id="loadZoneA">
+                            <input type="file" id="fileInputA" accept="audio/*" hidden>
+                            <button class="load-btn" onclick="document.getElementById('fileInputA').click()">
+                                Load Track
+                            </button>
+                            <span class="drop-hint">or drag & drop</span>
+                        </div>
                     </div>
 
                     <!-- Deck A Controls Column -->
                     <div class="deck-controls">
-                        <!-- FX Section -->
+                        <!-- FX Section: 4 slots (numbered like the console). Slot 1 is a working filter;
+                             the rest only store their state until their effect is implemented (see setupFx in deck.js).
+                             All four slots share the same width (set by CSS) so the knobs are evenly spaced. -->
                         <div class="fx-section">
                             <span class="section-label">FX</span>
                             <div class="fx-controls">
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxFilterA" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">FILTER</span>
+                                <div class="fx-knob-group" data-fx-slot="1" data-fx-type="filter">
+                                    <span class="fx-label"><span class="fx-number">1.</span><span class="fx-name">FILTER</span></span>
+                                    <div class="knob fx-knob" id="fxSlot1A" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot1ToggleA" title="Toggle FX 1 (filter)" aria-pressed="false">ON</button>
                                 </div>
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxFlangerA" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">FLANGER</span>
+                                <div class="fx-knob-group" data-fx-slot="2" data-fx-type="flanger">
+                                    <span class="fx-label"><span class="fx-number">2.</span><span class="fx-name">FLANGER</span></span>
+                                    <div class="knob fx-knob" id="fxSlot2A" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot2ToggleA" title="Toggle FX 2 (flanger)" aria-pressed="false">ON</button>
                                 </div>
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxEchoA" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">ECHO</span>
+                                <div class="fx-knob-group" data-fx-slot="3" data-fx-type="echo">
+                                    <span class="fx-label"><span class="fx-number">3.</span><span class="fx-name">ECHO</span></span>
+                                    <div class="knob fx-knob" id="fxSlot3A" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot3ToggleA" title="Toggle FX 3 (echo)" aria-pressed="false">ON</button>
+                                </div>
+                                <div class="fx-knob-group" data-fx-slot="4">
+                                    <span class="fx-label"><span class="fx-number">4.</span><span class="fx-name">—</span></span>
+                                    <div class="knob fx-knob" id="fxSlot4A" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot4ToggleA" title="Slot 4 (no effect assigned yet)" aria-pressed="false">ON</button>
                                 </div>
                             </div>
                         </div>
@@ -174,17 +191,14 @@
                                 </div>
                                 <!-- Transport Controls (below platter) -->
                                 <div class="platter-transport">
-                                    <button class="transport-btn play-btn" id="playA">
-                                        <span class="icon">▶</span>
+                                    <button class="transport-btn cue-btn" id="cueA">
+                                        CUE
                                     </button>
-                                    <button class="transport-btn pause-btn" id="pauseA">
-                                        <span class="icon">⏸</span>
+                                    <button class="transport-btn play-btn" id="playPauseA">
+                                        <span class="icon">▶</span>
                                     </button>
                                     <button class="transport-btn stop-btn" id="stopA">
                                         <span class="icon">⏹</span>
-                                    </button>
-                                    <button class="transport-btn cue-btn" id="cueA">
-                                        CUE
                                     </button>
                                     <button class="transport-btn sync-btn" id="syncA">
                                         SYNC
@@ -277,31 +291,34 @@
 
                 <!-- Deck B -->
                 <div class="deck" id="deckB" data-deck="B">
-                    <div class="deck-header">
-                        <span class="deck-label">DECK B</span>
-                        <span class="master-badge" id="masterBadgeB">MASTER</span>
-                        <div class="track-info">
-                            <span class="track-name" id="trackNameB">No Track Loaded</span>
-                            <span class="track-bpm" id="trackBpmB">-- BPM</span>
+                    <!-- Whole song area is a drop target (header + waveform + load zone) -->
+                    <div class="deck-drop-area" id="dropAreaB">
+                        <div class="deck-header">
+                            <span class="deck-label">DECK B</span>
+                            <span class="master-badge" id="masterBadgeB">MASTER</span>
+                            <div class="track-info">
+                                <span class="track-name" id="trackNameB">No Track Loaded</span>
+                                <span class="track-bpm" id="trackBpmB">-- BPM</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Mini Waveform -->
-                    <div class="mini-waveform-container">
-                        <canvas id="waveformB" class="mini-waveform"></canvas>
-                        <div class="waveform-time">
-                            <span id="currentTimeB">0:00</span>
-                            <span id="totalTimeB">0:00</span>
+                        <!-- Mini Waveform -->
+                        <div class="mini-waveform-container">
+                            <canvas id="waveformB" class="mini-waveform"></canvas>
+                            <div class="waveform-time">
+                                <span id="currentTimeB">0:00</span>
+                                <span id="totalTimeB">0:00</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Load Button / Drop Zone (full width) -->
-                    <div class="load-zone" id="loadZoneB">
-                        <input type="file" id="fileInputB" accept="audio/*" hidden>
-                        <button class="load-btn" onclick="document.getElementById('fileInputB').click()">
-                            Load Track
-                        </button>
-                        <span class="drop-hint">or drag & drop</span>
+                        <!-- Load Button / Drop Zone (full width) -->
+                        <div class="load-zone" id="loadZoneB">
+                            <input type="file" id="fileInputB" accept="audio/*" hidden>
+                            <button class="load-btn" onclick="document.getElementById('fileInputB').click()">
+                                Load Track
+                            </button>
+                            <span class="drop-hint">or drag & drop</span>
+                        </div>
                     </div>
 
                     <!-- Deck B Platter Column (on left, near mixer) -->
@@ -336,17 +353,14 @@
                                 </div>
                                 <!-- Transport Controls (below platter) -->
                                 <div class="platter-transport">
-                                    <button class="transport-btn play-btn" id="playB">
-                                        <span class="icon">▶</span>
+                                    <button class="transport-btn cue-btn" id="cueB">
+                                        CUE
                                     </button>
-                                    <button class="transport-btn pause-btn" id="pauseB">
-                                        <span class="icon">⏸</span>
+                                    <button class="transport-btn play-btn" id="playPauseB">
+                                        <span class="icon">▶</span>
                                     </button>
                                     <button class="transport-btn stop-btn" id="stopB">
                                         <span class="icon">⏹</span>
-                                    </button>
-                                    <button class="transport-btn cue-btn" id="cueB">
-                                        CUE
                                     </button>
                                     <button class="transport-btn sync-btn" id="syncB">
                                         SYNC
@@ -358,21 +372,35 @@
 
                     <!-- Deck B Controls Column -->
                     <div class="deck-controls">
-                        <!-- FX Section -->
+                        <!-- FX Section: 4 slots (numbered like the console). Slot 1 is a working filter;
+                             the rest only store their state until their effect is implemented (see setupFx in deck.js).
+                             All four slots share the same width (set by CSS) so the knobs are evenly spaced. -->
                         <div class="fx-section">
                             <span class="section-label">FX</span>
                             <div class="fx-controls">
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxFilterB" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">FILTER</span>
+                                <div class="fx-knob-group" data-fx-slot="1" data-fx-type="filter">
+                                    <span class="fx-label"><span class="fx-number">1.</span><span class="fx-name">FILTER</span></span>
+                                    <div class="knob fx-knob" id="fxSlot1B" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot1ToggleB" title="Toggle FX 1 (filter)" aria-pressed="false">ON</button>
                                 </div>
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxFlangerB" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">FLANGER</span>
+                                <div class="fx-knob-group" data-fx-slot="2" data-fx-type="flanger">
+                                    <span class="fx-label"><span class="fx-number">2.</span><span class="fx-name">FLANGER</span></span>
+                                    <div class="knob fx-knob" id="fxSlot2B" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot2ToggleB" title="Toggle FX 2 (flanger)" aria-pressed="false">ON</button>
                                 </div>
-                                <div class="fx-knob-group">
-                                    <div class="knob fx-knob" id="fxEchoB" data-value="0" data-min="0" data-max="100"></div>
-                                    <span class="fx-label">ECHO</span>
+                                <div class="fx-knob-group" data-fx-slot="3" data-fx-type="echo">
+                                    <span class="fx-label"><span class="fx-number">3.</span><span class="fx-name">ECHO</span></span>
+                                    <div class="knob fx-knob" id="fxSlot3B" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot3ToggleB" title="Toggle FX 3 (echo)" aria-pressed="false">ON</button>
+                                </div>
+                                <div class="fx-knob-group" data-fx-slot="4">
+                                    <span class="fx-label"><span class="fx-number">4.</span><span class="fx-name">—</span></span>
+                                    <div class="knob fx-knob" id="fxSlot4B" data-value="0" data-min="0" data-max="100"></div>
+                                    <span class="knob-value">0</span>
+                                    <button class="fx-toggle-btn" id="fxSlot4ToggleB" title="Slot 4 (no effect assigned yet)" aria-pressed="false">ON</button>
                                 </div>
                             </div>
                         </div>
@@ -443,6 +471,8 @@
                     <span>BROWSER</span>
                     <span class="collapsed-separator">|</span>
                     <span>PLAYLIST</span>
+                    <span class="collapsed-separator">|</span>
+                    <span>SAMPLES</span>
                 </div>
 
                 <!-- Browser Content -->
@@ -485,12 +515,31 @@
                             <span class="playlist-count" id="playlistCount">0 tracks</span>
                             <button class="browser-btn small" id="clearPlaylistBtn" title="Clear Playlist">Clear</button>
                         </div>
+                        <button class="playlist-collapse-btn" id="playlistCollapseBtn" type="button"
+                                aria-label="Ocultar playlist" aria-expanded="true" title="Ocultar playlist">◀</button>
                     </div>
                     <div class="playlist-content" id="playlistContent">
                         <div class="playlist-placeholder">
                             <span>Drag tracks here to add to playlist</span>
                         </div>
                     </div>
+                </div>
+
+                <!-- Samples -->
+                <div class="samples-panel">
+                    <div class="browser-header samples-header">
+                        <span class="browser-title">SAMPLES</span>
+                        <button class="samples-trash-btn" id="samplesTrashBtn" type="button"
+                                aria-label="Eliminar sample" title="Soltá acá para eliminar sample">
+                            <svg viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M2.5 4h11M6 4V2.5h4V4m2.5 0-.6 9.5H4.1L3.5 4m2.7 2.2v4.8m3.6-4.8v4.8" />
+                            </svg>
+                        </button>
+                        <button class="samples-collapse-btn" id="samplesCollapseBtn" type="button"
+                                aria-label="Ocultar panel de samples" aria-expanded="true" title="Ocultar samples">◀</button>
+                    </div>
+                    <div class="samples-status" id="samplesStatus" aria-live="polite"></div>
+                    <div class="samples-content" id="samplesContent" aria-label="Samples disponibles"></div>
                 </div>
                 </div><!-- /browser-content -->
             </section>

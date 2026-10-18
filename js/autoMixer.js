@@ -20,8 +20,10 @@ class AutoMixer {
         this.fadeStartTime = null;
         this.fadeTimer = null;
 
-        // Store original values
-        this.originalVolumes = { A: 1, B: 1 };
+        // Crossfader state for the automated transition
+        this.originalCrossfaderPosition = 0.5;
+        this.mixStartCrossfaderPosition = 0;
+        this.mixTargetCrossfaderPosition = 1;
         this.originalTempo = null;
         this.targetTempo = null;
 
@@ -91,16 +93,16 @@ class AutoMixer {
         const fromDeck = this.audioEngine.decks[fromDeckId];
         const toDeck = this.audioEngine.decks[toDeckId];
 
-        // Store original volumes
-        this.originalVolumes[fromDeckId] = fromDeck.volume;
-        this.originalVolumes[toDeckId] = toDeck.volume;
+        // Move the crossfader from the outgoing deck's side to the incoming deck's side.
+        // Individual channel volume faders remain under the user's control.
+        this.originalCrossfaderPosition = this.audioEngine.crossfaderPosition;
+        this.mixStartCrossfaderPosition = fromDeckId === 'A' ? 0 : 1;
+        this.mixTargetCrossfaderPosition = toDeckId === 'A' ? 0 : 1;
+        this.audioEngine.setCrossfader(this.mixStartCrossfaderPosition);
+        this.updateCrossfaderSlider(this.mixStartCrossfaderPosition);
 
         // Store target deck's original tempo for reset after mix
         this.targetTempo = toDeck.tempo;
-
-        // Set incoming deck volume to 0 before starting
-        this.audioEngine.setVolume(toDeckId, 0);
-        this.updateVolumeSlider(toDeckId, 0);
 
         // Sync and play the incoming deck
         this.audioEngine.sync(toDeckId);
@@ -122,22 +124,10 @@ class AutoMixer {
         const elapsed = (Date.now() - this.fadeStartTime) / 1000;
         const progress = Math.min(elapsed / this.fadeTime, 1);
 
-        const fromDeck = this.mixingFromDeck;
-        const toDeck = this.mixingToDeck;
-
-        // Calculate new volumes
-        // Outgoing deck: original -> 0
-        const outgoingVolume = this.originalVolumes[fromDeck] * (1 - progress);
-        // Incoming deck: 0 -> original (or max)
-        const incomingVolume = this.originalVolumes[toDeck] * progress;
-
-        // Apply volumes
-        this.audioEngine.setVolume(fromDeck, outgoingVolume);
-        this.audioEngine.setVolume(toDeck, incomingVolume);
-
-        // Update UI sliders
-        this.updateVolumeSlider(fromDeck, outgoingVolume);
-        this.updateVolumeSlider(toDeck, incomingVolume);
+        const position = this.mixStartCrossfaderPosition +
+            (this.mixTargetCrossfaderPosition - this.mixStartCrossfaderPosition) * progress;
+        this.audioEngine.setCrossfader(position);
+        this.updateCrossfaderSlider(position);
 
         // Check if mix is complete
         if (progress >= 1) {
@@ -157,11 +147,9 @@ class AutoMixer {
         const fromDeck = this.mixingFromDeck;
         const toDeck = this.mixingToDeck;
 
-        // Ensure final volumes are set
-        this.audioEngine.setVolume(fromDeck, 0);
-        this.audioEngine.setVolume(toDeck, this.originalVolumes[toDeck]);
-        this.updateVolumeSlider(fromDeck, 0);
-        this.updateVolumeSlider(toDeck, this.originalVolumes[toDeck]);
+        // Leave the crossfader on the incoming deck's side; channel faders were untouched.
+        this.audioEngine.setCrossfader(this.mixTargetCrossfaderPosition);
+        this.updateCrossfaderSlider(this.mixTargetCrossfaderPosition);
 
         // Stop the outgoing deck
         this.audioEngine.stop(fromDeck);
@@ -169,12 +157,6 @@ class AutoMixer {
         // Release the persistent sync lock from the auto-mix (bakes the matched
         // tempo into the incoming deck) so the tempo reset below can ease it to 1.0x
         this.audioEngine.clearSync(toDeck);
-
-        // Reset outgoing deck volume for next use
-        setTimeout(() => {
-            this.audioEngine.setVolume(fromDeck, this.originalVolumes[fromDeck]);
-            this.updateVolumeSlider(fromDeck, this.originalVolumes[fromDeck]);
-        }, 500);
 
         // Start gradual tempo reset on the new playing deck
         this.startTempoReset(toDeck);
@@ -239,15 +221,9 @@ class AutoMixer {
             this.tempoResetTimer = null;
         }
 
-        // Restore volumes
-        if (this.mixingFromDeck) {
-            this.audioEngine.setVolume(this.mixingFromDeck, this.originalVolumes[this.mixingFromDeck]);
-            this.updateVolumeSlider(this.mixingFromDeck, this.originalVolumes[this.mixingFromDeck]);
-        }
-        if (this.mixingToDeck) {
-            this.audioEngine.setVolume(this.mixingToDeck, this.originalVolumes[this.mixingToDeck]);
-            this.updateVolumeSlider(this.mixingToDeck, this.originalVolumes[this.mixingToDeck]);
-        }
+        // Restore the pre-mix crossfader position; channel faders remain unchanged.
+        this.audioEngine.setCrossfader(this.originalCrossfaderPosition);
+        this.updateCrossfaderSlider(this.originalCrossfaderPosition);
 
         this.isMixing = false;
         this.mixingFromDeck = null;
@@ -257,13 +233,11 @@ class AutoMixer {
     }
 
     /**
-     * Update volume slider UI
+     * Update crossfader slider UI
      */
-    updateVolumeSlider(deckId, volume) {
-        const slider = document.getElementById(`volume${deckId}`);
-        if (slider) {
-            slider.value = volume;
-        }
+    updateCrossfaderSlider(position) {
+        const slider = document.getElementById('crossfader');
+        if (slider) slider.value = position;
     }
 
     /**

@@ -47,8 +47,8 @@ class DeckController {
             currentTime: document.getElementById(`currentTime${id}`),
             totalTime: document.getElementById(`totalTime${id}`),
 
-            // Load zone
-            loadZone: document.getElementById(`loadZone${id}`),
+            // Load zone / drop area
+            dropArea: document.getElementById(`dropArea${id}`),
             fileInput: document.getElementById(`fileInput${id}`),
 
             // Tempo & Pitch
@@ -59,8 +59,7 @@ class DeckController {
             pitchValue: document.getElementById(`pitchValue${id}`),
 
             // Transport
-            playBtn: document.getElementById(`play${id}`),
-            pauseBtn: document.getElementById(`pause${id}`),
+            playPauseBtn: document.getElementById(`playPause${id}`),
             stopBtn: document.getElementById(`stop${id}`),
             cueBtn: document.getElementById(`cue${id}`),
             syncBtn: document.getElementById(`sync${id}`),
@@ -82,7 +81,11 @@ class DeckController {
             // Loop controls
             loopHalveBtn: document.getElementById(`loopHalve${id}`),
             loopToggleBtn: document.getElementById(`loopToggle${id}`),
-            loopDoubleBtn: document.getElementById(`loopDouble${id}`)
+            loopDoubleBtn: document.getElementById(`loopDouble${id}`),
+
+            // One-shot sample pads
+            padBtns: Array.from({ length: 8 }, (_, index) =>
+                document.getElementById(`pad${id}${index + 1}`))
         };
     }
 
@@ -94,6 +97,7 @@ class DeckController {
         this.setupEventListeners();
         this.setupAudioEngineListeners();
         this.setupPlatter();
+        this.setupFx();
     }
 
     /**
@@ -147,8 +151,7 @@ class DeckController {
         this.setupDragAndDrop();
 
         // Transport buttons
-        this.elements.playBtn.addEventListener('click', () => this.play());
-        this.elements.pauseBtn.addEventListener('click', () => this.pause());
+        this.elements.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
         this.elements.stopBtn.addEventListener('click', () => this.stop());
         this.elements.cueBtn.addEventListener('click', () => this.cue());
         this.elements.syncBtn.addEventListener('click', () => this.sync());
@@ -215,6 +218,34 @@ class DeckController {
             this.audioEngine.doubleLoop(this.deckId);
         });
 
+        this.elements.padBtns.forEach((button, index) => {
+            if (!button) return;
+            button.textContent = String(index + 1);
+            this.updatePadSampleLabel(button, index);
+            button.addEventListener('click', () => {
+                if (!this.audioEngine.playPad(this.deckId, index)) return;
+                button.classList.add('active');
+                clearTimeout(button.activeTimer);
+                button.activeTimer = setTimeout(() => button.classList.remove('active'), 140);
+            });
+
+            button.addEventListener('dragover', (event) => {
+                if (!event.dataTransfer.types.includes('application/x-webdj-sample')) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+                button.classList.add('drop-target');
+            });
+            button.addEventListener('dragleave', () => button.classList.remove('drop-target'));
+            button.addEventListener('drop', (event) => {
+                event.preventDefault();
+                button.classList.remove('drop-target');
+                const sampleIndex = Number(event.dataTransfer.getData('application/x-webdj-sample'));
+                if (this.audioEngine.assignSampleToPad(this.deckId, index, sampleIndex)) {
+                    this.updatePadSampleLabel(button, index);
+                }
+            });
+        });
+
         // Mini waveform click to seek
         this.elements.miniWaveformContainer.addEventListener('click', (e) => {
             if (this.duration <= 0) return;
@@ -226,32 +257,117 @@ class DeckController {
         });
     }
 
+    updatePadSampleLabel(button, padIndex) {
+        const sampleIndex = this.audioEngine.decks[this.deckId].padSampleAssignments[padIndex];
+        const sampleName = this.audioEngine.sampleLibrary[sampleIndex]?.name || 'Sin sample';
+        button.title = `Pad ${padIndex + 1}: ${sampleName} · arrastrá un sample para reemplazarlo`;
+        button.setAttribute('aria-label', `Pad ${padIndex + 1}, sample ${sampleName}`);
+    }
+
     /**
-     * Setup drag and drop for file loading
+     * Setup the FX slots: the knob of each slot sends its value (0..100) to the engine and
+     * the button under it switches the effect on/off (lit while it is on).
+     * Slots 1-3 are real effects (filter, flanger, echo); slot 4 only stores its state.
+     */
+    setupFx() {
+        const groups = this.element.querySelectorAll('.fx-knob-group');
+
+        this.fxSlots = [...groups].map(group => {
+            const slot = parseInt(group.dataset.fxSlot, 10);
+            const type = group.dataset.fxType || null;
+            const toggleButton = group.querySelector('.fx-toggle-btn');
+
+            const knob = new Knob(group.querySelector('.fx-knob'), {
+                // FX values are 0..100, shown plain (the EQ readout adds the +/- sign)
+                formatValue: (value) => String(Math.round(value)),
+                onChange: (value) => this.audioEngine.setDeckFxValue(this.deckId, slot, value)
+            });
+
+            toggleButton.addEventListener('click', () => {
+                this.setFxEnabled(slot, !group.classList.contains('on'));
+            });
+
+            return { slot, type, element: group, knob, toggleButton };
+        });
+    }
+
+    /**
+     * Switch an FX slot on/off and reflect it on screen. Shared by the on-screen button and
+     * the MIDI FX buttons, so both always drive the same state.
+     */
+    setFxEnabled(slot, enabled) {
+        const fx = this.fxSlots?.find(f => f.slot === slot);
+        if (!fx) return;
+
+        fx.element.classList.toggle('on', enabled);
+        fx.toggleButton.setAttribute('aria-pressed', String(enabled));
+        this.audioEngine.setDeckFxEnabled(this.deckId, slot, enabled);
+    }
+
+    /**
+     * Toggle an FX slot from outside the UI (MIDI on/off button).
+     */
+    toggleFxSlot(slot) {
+        const fx = this.fxSlots?.find(f => f.slot === slot);
+        if (!fx) return;
+
+        this.setFxEnabled(slot, !fx.element.classList.contains('on'));
+    }
+
+    /**
+     * Move an FX knob from outside the UI (MIDI knob). Knob.setValue() redraws it and, through
+     * its onChange, updates the engine; for a slot without a knob the engine is set directly.
+     */
+    setFxKnobValue(slot, value) {
+        const fx = this.fxSlots?.find(f => f.slot === slot);
+        if (!fx) {
+            this.audioEngine.setDeckFxValue(this.deckId, slot, value);
+            return;
+        }
+
+        fx.knob.setValue(value);
+    }
+
+    /**
+     * Setup drag and drop for file loading.
+     * The whole song area (header + waveform + load zone) accepts the drop, not just the
+     * small load zone, so a track can be dropped anywhere over the deck's upper half.
      */
     setupDragAndDrop() {
-        const loadZone = this.elements.loadZone;
+        const dropArea = this.elements.dropArea;
+        let dragDepth = 0;
 
+        // Required so the browser allows the drop and does not open the file itself
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            loadZone.addEventListener(eventName, (e) => {
+            dropArea.addEventListener(eventName, (e) => {
                 e.preventDefault();
                 e.stopPropagation();
             });
         });
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            loadZone.addEventListener(eventName, () => {
-                loadZone.classList.add('drag-over');
-            });
+        // dragenter/dragleave also fire when moving between the children of the area
+        // (canvases, button, labels), so they are counted to avoid a flickering highlight.
+        dropArea.addEventListener('dragenter', () => {
+            dragDepth++;
+            dropArea.classList.add('drag-over');
         });
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            loadZone.addEventListener(eventName, () => {
-                loadZone.classList.remove('drag-over');
-            });
+        dropArea.addEventListener('dragover', (e) => {
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            dropArea.classList.add('drag-over');
         });
 
-        loadZone.addEventListener('drop', async (e) => {
+        dropArea.addEventListener('dragleave', () => {
+            dragDepth = Math.max(0, dragDepth - 1);
+            if (dragDepth === 0) {
+                dropArea.classList.remove('drag-over');
+            }
+        });
+
+        dropArea.addEventListener('drop', async (e) => {
+            dragDepth = 0;
+            dropArea.classList.remove('drag-over');
+
             // Check for browser file drop
             const audioFileData = e.dataTransfer.getData('application/x-audio-file');
             if (audioFileData && window.djApp && window.djApp.fileBrowser) {
@@ -283,23 +399,26 @@ class DeckController {
             this.updatePosition(position, duration);
         });
 
-        // Play state changes
+        this.audioEngine.on('sampleRemoved', () => {
+            this.elements.padBtns.forEach((button, index) => {
+                if (button) this.updatePadSampleLabel(button, index);
+            });
+        });
+
+        // Transport state changes (single merged play/pause button)
         this.audioEngine.on('play', (deckId) => {
             if (deckId !== this.deckId) return;
-            this.elements.playBtn.classList.add('active');
-            this.elements.pauseBtn.classList.remove('active');
+            this.setTransportState('playing');
         });
 
         this.audioEngine.on('pause', (deckId) => {
             if (deckId !== this.deckId) return;
-            this.elements.pauseBtn.classList.add('active');
-            this.elements.playBtn.classList.remove('active');
+            this.setTransportState('paused');
         });
 
         this.audioEngine.on('stop', (deckId) => {
             if (deckId !== this.deckId) return;
-            this.elements.playBtn.classList.remove('active');
-            this.elements.pauseBtn.classList.remove('active');
+            this.setTransportState('stopped');
             this.updatePosition(this.audioEngine.decks[deckId].cuePoint, this.duration);
         });
 
@@ -460,8 +579,31 @@ class DeckController {
     }
 
     /**
+     * Reflect the transport state on the merged play/pause button.
+     * playing -> green + ▶   paused -> yellow + ⏸   stopped -> neutral + ▶
+     * Driven by the engine events so keyboard, MIDI, AutoMixer and track end stay in sync.
+     */
+    setTransportState(state) {
+        const btn = this.elements.playPauseBtn;
+        btn.classList.toggle('active', state === 'playing');
+        btn.classList.toggle('paused', state === 'paused');
+        btn.querySelector('.icon').textContent = state === 'paused' ? '⏸' : '▶';
+    }
+
+    /**
      * Transport controls
      */
+    togglePlayPause() {
+        // Read the engine state instead of a local flag so the merged button stays
+        // correct even when playback started/stopped from keyboard, MIDI or AutoMixer.
+        const deck = this.audioEngine.decks[this.deckId];
+        if (deck.isPlaying && !deck.isPaused) {
+            this.pause();
+        } else {
+            this.play();
+        }
+    }
+
     play() {
         this.audioEngine.play(this.deckId);
     }

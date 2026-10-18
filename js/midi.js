@@ -28,6 +28,11 @@ class MIDIController {
                 eqHigh: 96,    // CC
                 eqMid: 97,     // CC
                 eqLow: 98,     // CC
+                // FX section: 4 knobs (CC) and their 4 on/off buttons (Note).
+                // The knob sets the amount of FX slot N and the button switches it on/off,
+                // which is exactly what the on-screen knob/button of that slot do.
+                fxKnobs: [16, 17, 18, 19],
+                fxButtons: [16, 17, 18, 19],
                 // Hot Cues (Notes)
                 hotCue1: 34,
                 hotCue2: 35,
@@ -56,6 +61,10 @@ class MIDIController {
                 eqHigh: 99,    // CC
                 eqMid: 100,    // CC
                 eqLow: 101,    // CC
+                // FX section: same layout as deck A, shifted +32 (measured on the
+                // right-hand deck). Knob = FX slot amount, button = on/off.
+                fxKnobs: [48, 49, 50, 51],
+                fxButtons: [48, 49, 50, 51],
                 // Hot Cues (Notes)
                 hotCue1: 66,
                 hotCue2: 67,
@@ -229,6 +238,11 @@ class MIDIController {
             } else if (note === this.mapping.deckA.loopToggle) {
                 this.audioEngine.toggleLoop('A');
             }
+            // FX on/off buttons (one per FX slot)
+            else {
+                const fxSlot = this.findFxSlot(this.mapping.deckA.fxButtons, note);
+                if (fxSlot) this.toggleFx('A', fxSlot);
+            }
         }
         // Deck B (Channel 1)
         else if (channel === this.mapping.deckB.channel) {
@@ -266,6 +280,11 @@ class MIDIController {
                 this.audioEngine.doubleLoop('B');
             } else if (note === this.mapping.deckB.loopToggle) {
                 this.audioEngine.toggleLoop('B');
+            }
+            // FX on/off buttons (one per FX slot)
+            else {
+                const fxSlot = this.findFxSlot(this.mapping.deckB.fxButtons, note);
+                if (fxSlot) this.toggleFx('B', fxSlot);
             }
         }
     }
@@ -313,6 +332,11 @@ class MIDIController {
                 this.audioEngine.setCrossfader(cf);
                 this.updateSlider('crossfader', cf);
             }
+            // FX knobs (one per FX slot)
+            else {
+                const fxSlot = this.findFxSlot(this.mapping.deckA.fxKnobs, controller);
+                if (fxSlot) this.setFxValue('A', fxSlot, value);
+            }
         }
         // Deck B controls (Channel 1)
         else if (channel === this.mapping.deckB.channel) {
@@ -338,6 +362,11 @@ class MIDIController {
                 const db = this.ccToDb(value);
                 this.audioEngine.setEQ('B', 'low', db);
                 this.updateKnob('eqLowB', db);
+            }
+            // FX knobs (one per FX slot)
+            else {
+                const fxSlot = this.findFxSlot(this.mapping.deckB.fxKnobs, controller);
+                if (fxSlot) this.setFxValue('B', fxSlot, value);
             }
         }
     }
@@ -375,6 +404,39 @@ class MIDIController {
         } else {
             this.audioEngine.play(deckId);
         }
+    }
+
+    /**
+     * Which FX slot (1-4) a MIDI number belongs to, or 0 when it is not an FX control.
+     * A deck mapping without FX numbers simply returns 0 and nothing happens.
+     */
+    findFxSlot(numbers, value) {
+        const index = (numbers || []).indexOf(value);
+        return index === -1 ? 0 : index + 1;
+    }
+
+    /**
+     * Set an FX slot amount from a hardware knob: the CC range (0-127) becomes the slot
+     * amount (0-100) and the on-screen knob follows the hardware.
+     */
+    setFxValue(deckId, slot, ccValue) {
+        const value = Math.round((ccValue / 127) * 100);
+        const deckController = deckId === 'A' ? this.deckA : this.deckB;
+
+        if (deckController) {
+            deckController.setFxKnobValue(slot, value);
+        } else {
+            this.audioEngine.setDeckFxValue(deckId, slot, value);
+        }
+    }
+
+    /**
+     * Toggle an FX slot from a hardware button: the exact same on/off the screen button
+     * does, so the lit button and the engine never disagree.
+     */
+    toggleFx(deckId, slot) {
+        const deckController = deckId === 'A' ? this.deckA : this.deckB;
+        if (deckController) deckController.toggleFxSlot(slot);
     }
 
     /**

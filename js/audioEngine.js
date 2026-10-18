@@ -5,10 +5,68 @@
  * Uses Web Audio API for EQ and mixing
  */
 
+/**
+ * FX filter (slot 1) range in Hz. Wide open the lowpass is transparent; the knob
+ * sweeps the cutoff down towards FX_FILTER_CLOSED_HZ.
+ */
+const FX_FILTER_OPEN_HZ = 22050;
+const FX_FILTER_CLOSED_HZ = 200;
+
+/**
+ * FX flanger (slot 2): a short delay swept by a slow LFO and mixed back with the dry
+ * signal. The knob scales the wet mix, the sweep depth, the feedback and the LFO rate;
+ * switched off, the wet mix and the feedback go to 0 and only the dry path is heard.
+ */
+const FX_FLANGER_BASE_DELAY = 0.005;    // s, centre of the sweep (must stay above DEPTH_MAX so the
+                                        // delay time never goes negative, which would clamp the sweep)
+const FX_FLANGER_DEPTH_MIN = 0.0008;    // s, LFO swing at knob 0
+const FX_FLANGER_DEPTH_MAX = 0.0045;    // s, LFO swing at knob 100 (sweeps the delay 0.5 to 9.5 ms)
+const FX_FLANGER_WET_MIN = 0.25;        // wet mix at knob 0 (keeps it audible when switched on)
+const FX_FLANGER_WET_MAX = 1;           // wet mix at knob 100 (cancels the dry signal at the notches)
+const FX_FLANGER_FEEDBACK_MAX = 0.4;    // feedback at knob 100. Kept moderate on purpose: more feedback
+                                        // fills the notches (louder but flatter); 0.4 keeps the deepest
+                                        // sweep while still adding resonance
+const FX_FLANGER_RATE_MIN = 0.25;       // Hz, sweep speed at knob 0
+const FX_FLANGER_RATE_MAX = 2;          // Hz, sweep speed at knob 100
+
+/**
+ * FX echo (slot 3): a delay with decaying repeats, kept in time with the track (the delay
+ * time is derived from the deck BPM, so the repeats land on the beat). The knob scales the
+ * wet mix and the feedback; switched off, both go to 0 and only the dry path is heard.
+ */
+const FX_ECHO_BEATS = 0.75;             // repeat every 3/16 of a bar (a dotted eighth note)
+const FX_ECHO_FALLBACK_BPM = 120;       // used while the deck has no detected BPM yet
+const FX_ECHO_MAX_DELAY = 2;            // s, delay line length (covers slow tempos)
+const FX_ECHO_WET_MIN = 0.3;            // wet mix at knob 0 (switched on there is already one repeat)
+const FX_ECHO_WET_MAX = 0.7;            // wet mix at knob 100
+const FX_ECHO_FEEDBACK_MIN = 0.15;      // feedback at knob 0 (a single, clearly audible repeat)
+const FX_ECHO_FEEDBACK_MAX = 0.55;      // feedback at knob 100, kept below self-oscillation
+const FX_ECHO_DAMP_HZ = 250;            // the repeats lose their low end, so a long tail stays tight
+
+/**
+ * How long to wait for a blocked AudioContext to report 'running' before giving up.
+ * Only relevant on the very first attempt (no user gesture yet), where Chrome may
+ * leave resume() pending; a real click resumes in a few tens of milliseconds.
+ */
+const AUDIO_RESUME_TIMEOUT_MS = 600;
+const SAMPLE_LIBRARY = [
+    { name: 'Kick', file: 'kick.wav' },
+    { name: 'Snare', file: 'snare.wav' },
+    { name: 'Clap', file: 'clap.wav' },
+    { name: 'Hat', file: 'hat.wav' },
+    { name: 'Subdrop', file: 'subdrop.wav' },
+    { name: 'Riser', file: 'riser.wav' },
+    { name: 'Laser', file: 'laser.wav' },
+    { name: 'Stab', file: 'stab.wav' }
+];
+const SAMPLE_MAX_DURATION_SECONDS = 30;
+
 class AudioEngine {
     constructor() {
         this.audioContext = null;
         this.masterGain = null;
+        this.sampleLibrary = SAMPLE_LIBRARY.map(sample => ({ ...sample }));
+        this.sampleBuffers = [];
 
         // Deck states
         this.decks = {
@@ -55,6 +113,13 @@ class AudioEngine {
             eqHigh: null,
             analyser: null,
 
+            // FX: slots 1-3 are real effects (filter, flanger, echo); slot 4 only stores state
+            fxFilter: null,
+            fxFlanger: null,
+            fxEcho: null,
+            fxBus: null,        // sums the FX chain so far; it is the input of the echo stage
+            fxSlots: null,      // { slot: { type, node, value, enabled } }
+
             // Playback state
             isPlaying: false,
             isPaused: false,
@@ -98,6 +163,9 @@ class AudioEngine {
             // Original audio buffer for waveform/BPM
             audioBuffer: null,
 
+            // Sample assigned to each performance pad (sample library index)
+            padSampleAssignments: SAMPLE_LIBRARY.map((_, index) => index),
+
             // Loop state
             loopEnabled: false,
             loopStart: 0,        // En segundos
@@ -113,10 +181,22 @@ class AudioEngine {
     }
 
     /**
-     * Initialize audio context (must be called after user interaction)
+     * Initialize audio context (must be called after user interaction).
+     *
+     * Chrome does NOT throw when an AudioContext is created without a user
+     * gesture: it returns a context in 'suspended' state that renders silence.
+     * If init() returned normally in that case, the app would hide the
+     * "Click to start" overlay and then playing a deck from MIDI (a MIDI message
+     * is not a user gesture) would stay muted with the button looking green.
+     * So init() only succeeds when the context is really running.
      */
     async init() {
-        if (this.audioContext) return;
+        // A previous attempt may have already created the context (suspended).
+        // Retrying after the click must resume it, never bail out early.
+        if (this.audioContext) {
+            await this.ensureRunning();
+            return;
+        }
 
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -132,7 +212,136 @@ class AudioEngine {
         // Start position update loop
         this.startPositionLoop();
 
+        await this.ensureRunning();
         console.log('Audio Engine initialized (HTML5 Audio mode)');
+    }
+
+    /** Load the bundled one-shot samples for the eight performance pads. */
+    async loadSamples() {
+        const results = await Promise.allSettled(this.sampleLibrary.map(async (sample) => {
+            const response = await fetch(`samples/${sample.file}`);
+            if (!response.ok) throw new Error(`Could not load ${sample.file}`);
+            return this.audioContext.decodeAudioData(await response.arrayBuffer());
+        }));
+
+        this.sampleBuffers = results.map((result, index) => {
+            if (result.status === 'fulfilled') {
+                this.sampleLibrary[index].duration = result.value.duration;
+                return result.value;
+            }
+            console.warn(`Sample ${this.sampleLibrary[index].name} could not be loaded:`, result.reason);
+            return null;
+        });
+    }
+
+    async addSampleFromFile(file) {
+        if (!file || !this.audioContext) throw new Error('No se pudo leer el audio.');
+
+        const decoded = await this.audioContext.decodeAudioData(await file.arrayBuffer());
+        const frameCount = Math.min(
+            decoded.length,
+            Math.floor(decoded.sampleRate * SAMPLE_MAX_DURATION_SECONDS)
+        );
+        const sampleBuffer = frameCount === decoded.length
+            ? decoded
+            : this.audioContext.createBuffer(decoded.numberOfChannels, frameCount, decoded.sampleRate);
+
+        if (sampleBuffer !== decoded) {
+            for (let channel = 0; channel < decoded.numberOfChannels; channel++) {
+                sampleBuffer.copyToChannel(decoded.getChannelData(channel).subarray(0, frameCount), channel);
+            }
+        }
+
+        const name = Utils.getFileNameWithoutExt(file.name);
+        const index = this.sampleLibrary.length;
+        this.sampleLibrary.push({
+            name,
+            file: null,
+            duration: sampleBuffer.duration,
+            custom: true,
+            trimmed: decoded.duration > SAMPLE_MAX_DURATION_SECONDS
+        });
+        this.sampleBuffers.push(sampleBuffer);
+        return index;
+    }
+
+    removeCustomSample(sampleIndex) {
+        const sample = this.sampleLibrary[sampleIndex];
+        if (!sample?.custom) return null;
+
+        this.sampleLibrary.splice(sampleIndex, 1);
+        this.sampleBuffers.splice(sampleIndex, 1);
+
+        for (const deck of Object.values(this.decks)) {
+            deck.padSampleAssignments = deck.padSampleAssignments.map((assignedIndex, padIndex) => {
+                if (assignedIndex === sampleIndex) return padIndex;
+                return assignedIndex > sampleIndex ? assignedIndex - 1 : assignedIndex;
+            });
+        }
+
+        this.events.emit('sampleRemoved', sampleIndex, sample);
+        return sample;
+    }
+
+    /** Play a one-shot through the deck's EQ, FX, volume and crossfader path. */
+    playSample(deckId, sampleIndex) {
+        const deck = this.decks[deckId];
+        const buffer = this.sampleBuffers[sampleIndex];
+        if (!deck || !deck.eqLow || !buffer) return false;
+
+        const source = this.audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(deck.eqLow);
+        source.start();
+        return true;
+    }
+
+    playPad(deckId, padIndex) {
+        const deck = this.decks[deckId];
+        if (!deck || padIndex < 0 || padIndex >= deck.padSampleAssignments.length) return false;
+        return this.playSample(deckId, deck.padSampleAssignments[padIndex]);
+    }
+
+    assignSampleToPad(deckId, padIndex, sampleIndex) {
+        const deck = this.decks[deckId];
+        if (!deck || !this.sampleBuffers[sampleIndex] || padIndex < 0 ||
+            padIndex >= deck.padSampleAssignments.length) return false;
+        deck.padSampleAssignments[padIndex] = sampleIndex;
+        this.events.emit('padSampleAssigned', deckId, padIndex, sampleIndex);
+        return true;
+    }
+
+    /**
+     * Make sure the AudioContext is actually running.
+     *
+     * resume() only succeeds inside a real user gesture (a click or a keypress;
+     * Web MIDI messages do not count), so outside one the context stays
+     * 'suspended'. Throwing here is what keeps initAudioContext() waiting for
+     * that click with the start overlay visible.
+     *
+     * Careful: resume() is NOT awaited blindly. While the page has no user
+     * gesture Chrome can leave that promise pending forever, and an awaited
+     * promise that never settles would hang init() before initAudioContext()
+     * attaches the click listener - i.e. the overlay would stop responding.
+     * Raced against a timeout, a blocked context reports failure and a real
+     * click still resumes instantly (it takes a few tens of ms).
+     */
+    async ensureRunning() {
+        const ctx = this.audioContext;
+        if (ctx.state === 'running') return;
+
+        try {
+            await Promise.race([
+                ctx.resume(),
+                new Promise((resolve) => setTimeout(resolve, AUDIO_RESUME_TIMEOUT_MS))
+            ]);
+        } catch (err) {
+            console.info('AudioContext.resume() rejected:', err);
+        }
+
+        if (ctx.state !== 'running') {
+            throw new Error(`AudioContext is "${ctx.state}" - needs a user gesture`);
+        }
     }
 
     /**
@@ -165,14 +374,91 @@ class AudioEngine {
         deck.eqHigh.frequency.value = 10000;
         deck.eqHigh.gain.value = 0;
 
+        // Create the FX filter (slot 1): a lowpass kept wide open while the FX is off
+        deck.fxFilter = this.audioContext.createBiquadFilter();
+        deck.fxFilter.type = 'lowpass';
+        deck.fxFilter.frequency.value = FX_FILTER_OPEN_HZ;
+        deck.fxFilter.Q.value = 0.7;
+
+        // Create the FX flanger (slot 2): the signal keeps a dry path and is also sent
+        // through a short delay that a slow LFO sweeps (the delay feeds back into itself).
+        deck.fxFlanger = {
+            dry: this.audioContext.createGain(),
+            delay: this.audioContext.createDelay(0.05),
+            wet: this.audioContext.createGain(),
+            feedback: this.audioContext.createGain(),
+            lfo: this.audioContext.createOscillator(),
+            lfoDepth: this.audioContext.createGain()
+        };
+        deck.fxFlanger.dry.gain.value = 1;                          // the dry path is always open
+        deck.fxFlanger.delay.delayTime.value = FX_FLANGER_BASE_DELAY;
+        deck.fxFlanger.wet.gain.value = 0;                          // switched off = no wet signal
+        deck.fxFlanger.feedback.gain.value = 0;
+        deck.fxFlanger.lfo.type = 'sine';
+        deck.fxFlanger.lfo.frequency.value = FX_FLANGER_RATE_MIN;
+        deck.fxFlanger.lfoDepth.gain.value = FX_FLANGER_DEPTH_MIN;  // LFO swing, in seconds
+        deck.fxFlanger.lfo.start();                                 // always running; silent while wet = 0
+
+        // Create the FX echo (slot 3): a delay line with decaying feedback, in time with the
+        // deck (the delay time is refreshed from the deck BPM, see refreshDeckEchoTime).
+        deck.fxEcho = {
+            dry: this.audioContext.createGain(),
+            delay: this.audioContext.createDelay(FX_ECHO_MAX_DELAY),
+            wet: this.audioContext.createGain(),
+            feedback: this.audioContext.createGain(),
+            damp: this.audioContext.createBiquadFilter()    // highpass inside the feedback loop
+        };
+        deck.fxEcho.dry.gain.value = 1;                     // the dry path is always open
+        deck.fxEcho.delay.delayTime.value = this.echoDelaySeconds(deck);    // in time with the deck
+        deck.fxEcho.wet.gain.value = 0;                     // switched off = no repeats
+        deck.fxEcho.feedback.gain.value = 0;
+        deck.fxEcho.damp.type = 'highpass';
+        deck.fxEcho.damp.frequency.value = FX_ECHO_DAMP_HZ;
+        deck.fxEcho.damp.Q.value = 0.7;
+
+        // Bus that sums the filter and the flanger: it is the input of the echo stage, so the
+        // echo repeats the whole FX chain instead of just one of its paths
+        deck.fxBus = this.audioContext.createGain();
+        deck.fxBus.gain.value = 1;
+
+        // FX slot state. Slots without audio nodes only keep their value/enabled state.
+        deck.fxSlots = {
+            1: { type: 'filter', node: deck.fxFilter, value: 0, enabled: false },
+            2: { type: 'flanger', node: deck.fxFlanger.wet, value: 0, enabled: false },
+            3: { type: 'echo', node: deck.fxEcho.wet, value: 0, enabled: false },
+            4: { type: null, node: null, value: 0, enabled: false }
+        };
+
         // Create analyser for volume metering
         deck.analyser = this.audioContext.createAnalyser();
         deck.analyser.fftSize = 256;
 
-        // Connect EQ chain: eqLow -> eqMid -> eqHigh -> gain -> analyser -> master
+        // Connect chain: eqLow -> eqMid -> eqHigh -> filter -> [dry | flanger] -> fxBus
+        //                 -> [dry | echo] -> gain -> analyser -> master
         deck.eqLow.connect(deck.eqMid);
         deck.eqMid.connect(deck.eqHigh);
-        deck.eqHigh.connect(deck.gainNode);
+        deck.eqHigh.connect(deck.fxFilter);
+        // Dry path (always open, so the deck is never muted by an FX)
+        deck.fxFilter.connect(deck.fxFlanger.dry);
+        deck.fxFlanger.dry.connect(deck.fxBus);
+        // Flanger path: filter -> delay -> wet -> bus, with the delay feeding back into itself
+        deck.fxFilter.connect(deck.fxFlanger.delay);
+        deck.fxFlanger.delay.connect(deck.fxFlanger.wet);
+        deck.fxFlanger.wet.connect(deck.fxBus);
+        deck.fxFlanger.delay.connect(deck.fxFlanger.feedback);
+        deck.fxFlanger.feedback.connect(deck.fxFlanger.delay);
+        // LFO that sweeps the delay time
+        deck.fxFlanger.lfo.connect(deck.fxFlanger.lfoDepth);
+        deck.fxFlanger.lfoDepth.connect(deck.fxFlanger.delay.delayTime);
+        // Echo path: bus -> delay -> wet -> gain, with the repeats fed back through a highpass
+        deck.fxBus.connect(deck.fxEcho.dry);
+        deck.fxEcho.dry.connect(deck.gainNode);
+        deck.fxBus.connect(deck.fxEcho.delay);
+        deck.fxEcho.delay.connect(deck.fxEcho.wet);
+        deck.fxEcho.wet.connect(deck.gainNode);
+        deck.fxEcho.delay.connect(deck.fxEcho.damp);
+        deck.fxEcho.damp.connect(deck.fxEcho.feedback);
+        deck.fxEcho.feedback.connect(deck.fxEcho.delay);
         deck.gainNode.connect(deck.analyser);
         deck.analyser.connect(this.masterGain);
 
@@ -456,6 +742,10 @@ class AudioEngine {
         }
 
         this.events.emit('tempoChange', deckId, tempo);
+
+        // Keep a tempo-synced echo in time even while the deck is stopped (the position loop
+        // takes care of it during playback, where the rate ramps smoothly)
+        this.refreshDeckEchoTime(deckId);
     }
 
     /**
@@ -534,6 +824,100 @@ class AudioEngine {
         }
 
         this.events.emit('eqChange', deckId, band, value);
+    }
+
+    /**
+     * Set the value (0..100) of a deck FX slot
+     */
+    setDeckFxValue(deckId, slot, value) {
+        const fxSlot = this.decks[deckId]?.fxSlots?.[slot];
+        if (!fxSlot) return;
+
+        fxSlot.value = Utils.clamp(value, 0, 100);
+        this.applyDeckFxSlot(this.decks[deckId], fxSlot);
+    }
+
+    /**
+     * Switch a deck FX slot on/off (the knob keeps its value for when it is switched back on)
+     */
+    setDeckFxEnabled(deckId, slot, enabled) {
+        const fxSlot = this.decks[deckId]?.fxSlots?.[slot];
+        if (!fxSlot) return;
+
+        fxSlot.enabled = !!enabled;
+        this.applyDeckFxSlot(this.decks[deckId], fxSlot);
+    }
+
+    /**
+     * Push the value/enabled state of an FX slot onto its audio nodes.
+     * Slots without nodes (effect not implemented yet) only keep the state.
+     */
+    applyDeckFxSlot(deck, fxSlot) {
+        if (!fxSlot.node) return;
+
+        const amount = fxSlot.value / 100;
+        const on = fxSlot.enabled;
+        // Ramped so dragging the knob (or the button) sweeps instead of stepping
+        const ramp = (param, value) => param.setTargetAtTime(value, this.audioContext.currentTime, 0.01);
+
+        if (fxSlot.type === 'filter') {
+            // Off or at 0 => wide open (no filtering). On => sweep down exponentially.
+            const filterAmount = on ? amount : 0;
+            ramp(fxSlot.node.frequency, FX_FILTER_OPEN_HZ * Math.pow(FX_FILTER_CLOSED_HZ / FX_FILTER_OPEN_HZ, filterAmount));
+            return;
+        }
+
+        if (fxSlot.type === 'flanger') {
+            const { wet, feedback, lfo, lfoDepth } = deck.fxFlanger;
+            // Switched on, even at 0 the flanger is audible (a slow, shallow sweep); the knob
+            // adds wet mix and feedback up to a full "jet"
+            ramp(wet.gain, on ? FX_FLANGER_WET_MIN + amount * (FX_FLANGER_WET_MAX - FX_FLANGER_WET_MIN) : 0);
+            ramp(feedback.gain, on ? amount * FX_FLANGER_FEEDBACK_MAX : 0);
+            ramp(lfoDepth.gain, FX_FLANGER_DEPTH_MIN + amount * (FX_FLANGER_DEPTH_MAX - FX_FLANGER_DEPTH_MIN));
+            ramp(lfo.frequency, FX_FLANGER_RATE_MIN + amount * (FX_FLANGER_RATE_MAX - FX_FLANGER_RATE_MIN));
+            return;
+        }
+
+        if (fxSlot.type === 'echo') {
+            const { wet, feedback } = deck.fxEcho;
+            // Switched on, even at 0 there is a single repeat; the knob adds wet mix and
+            // feedback up to a long tail
+            ramp(wet.gain, on ? FX_ECHO_WET_MIN + amount * (FX_ECHO_WET_MAX - FX_ECHO_WET_MIN) : 0);
+            ramp(feedback.gain, on ? FX_ECHO_FEEDBACK_MIN + amount * (FX_ECHO_FEEDBACK_MAX - FX_ECHO_FEEDBACK_MIN) : 0);
+            // Put the repeats back in time with the deck (the tempo may have changed meanwhile)
+            this.refreshDeckEchoTime(deck.id);
+        }
+    }
+
+    /**
+     * Delay time of the echo in real seconds: one FX_ECHO_BEATS fraction of a beat at the
+     * deck BPM. The BPM is measured in media time, so the deck playbackRate has to be
+     * divided out to get the time the repeats actually take on the speakers.
+     */
+    echoDelaySeconds(deck) {
+        const bpm = this.getGridBpm(deck.id) || FX_ECHO_FALLBACK_BPM;
+        // The live playbackRate is what the music is really doing (it already includes the sync
+        // and PLL nudges); rateTarget is only the value it is ramping towards.
+        const rate = deck.audioElement?.playbackRate || deck.rateTarget || 1;
+        return Utils.clamp((60 / bpm) * FX_ECHO_BEATS / (rate > 0 ? rate : 1), 0.02, FX_ECHO_MAX_DELAY);
+    }
+
+    /**
+     * Keep the echo in time with the deck: the tempo slider, sync and pitch shift all change
+     * the playbackRate, so the delay time is refreshed from the position loop while the rate
+     * is being ramped. Does nothing while the echo is off, and only writes when the time
+     * actually moved (a rewrite would restart the smoothing on every frame).
+     */
+    refreshDeckEchoTime(deckId) {
+        const deck = this.decks[deckId];
+        if (!deck?.fxEcho) return;
+        if (!deck.fxSlots?.[3]?.enabled) return;
+
+        const delayTime = this.echoDelaySeconds(deck);
+        const param = deck.fxEcho.delay.delayTime;
+        if (Math.abs(param.value - delayTime) < 0.001) return;
+
+        param.setTargetAtTime(delayTime, this.audioContext.currentTime, 0.02);
     }
 
     /**
@@ -1002,6 +1386,9 @@ class AudioEngine {
 
                 // Smoothly ramp playbackRate toward its composed target (no clicks)
                 this.rampRate(deckId, dtSec);
+
+                // Keep a tempo-synced echo in time while the rate ramps (no-op while it is off)
+                this.refreshDeckEchoTime(deckId);
 
                 if (deck.isPlaying && !deck.isPaused) {
                     const position = this.getPosition(deckId);

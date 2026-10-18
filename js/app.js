@@ -13,6 +13,7 @@ class DJMixApp {
         this.autoMixer = null;
         this.fileBrowser = null;
         this.playlist = null;
+        this.sampleBrowser = null;
 
         this.isInitialized = false;
     }
@@ -29,6 +30,9 @@ class DJMixApp {
         // Initialize on first user interaction
         await this.initAudioContext();
 
+        // Preload bundled one-shots before the pads are used.
+        await this.audioEngine.loadSamples();
+
         // Create controllers
         this.deckA = new DeckController('A', this.audioEngine);
         this.deckB = new DeckController('B', this.audioEngine);
@@ -41,6 +45,7 @@ class DJMixApp {
         this.fileBrowser = new FileBrowser(this.audioEngine);
         this.playlist = new Playlist(this.audioEngine, this.fileBrowser);
         this.fileBrowser.setPlaylist(this.playlist);
+        this.sampleBrowser = new SampleBrowser(this.audioEngine, this.fileBrowser);
 
         // Setup keyboard shortcuts
         this.setupKeyboardShortcuts();
@@ -74,7 +79,10 @@ class DJMixApp {
             }
         };
 
-        // Try to init immediately (might work if called from a user event)
+        // Try to start audio right away: it only works if the browser already
+        // allows autoplay. Otherwise init() fails fast (it never hangs on the
+        // autoplay-blocked resume) and the overlay below stays visible until the
+        // user clicks, which is the gesture Chrome is waiting for.
         try {
             await this.audioEngine.init();
             hideOverlay();
