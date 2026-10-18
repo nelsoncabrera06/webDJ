@@ -324,6 +324,50 @@
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     overflow: hidden;
+    transition: flex-basis var(--transition-normal), min-width var(--transition-normal);
+}
+
+.playlist-collapse-btn {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 0 3px;
+    background: transparent;
+    border: 0;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.playlist-collapse-btn:hover {
+    color: var(--text-primary);
+}
+
+.playlist-panel.collapsed {
+    flex: 0 0 46px;
+    min-width: 46px;
+}
+
+.playlist-panel.collapsed .browser-header {
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 4px;
+    border-bottom: 0;
+}
+
+.playlist-panel.collapsed .browser-title {
+    writing-mode: vertical-rl;
+}
+
+.playlist-panel.collapsed .playlist-collapse-btn {
+    margin-left: 0;
+}
+
+.playlist-panel.collapsed .playlist-controls,
+.playlist-panel.collapsed .playlist-content {
+    display: none;
 }
 
 /* Bundled samples that can be dragged onto any deck pad */

@@ -479,6 +479,11 @@ class Playlist {
         this.playlistContent = document.getElementById('playlistContent');
         this.playlistCount = document.getElementById('playlistCount');
         this.clearPlaylistBtn = document.getElementById('clearPlaylistBtn');
+        this.panel = this.playlistContent.closest('.playlist-panel');
+        this.collapseButton = document.getElementById('playlistCollapseBtn');
+        this.collapseButton?.addEventListener('click', () => {
+            this.setCollapsed(!this.panel.classList.contains('collapsed'));
+        });
 
         // State
         this.tracks = []; // Array of { file, name, duration }
@@ -499,6 +504,16 @@ class Playlist {
         // Setup event listeners
         this.setupEventListeners();
         this.setupDropZone();
+    }
+
+    setCollapsed(collapsed) {
+        this.panel.classList.toggle('collapsed', collapsed);
+        this.collapseButton.textContent = collapsed ? '▶' : '◀';
+        this.collapseButton.setAttribute('aria-expanded', String(!collapsed));
+        this.collapseButton.setAttribute('aria-label', collapsed
+            ? 'Mostrar playlist'
+            : 'Ocultar playlist');
+        this.collapseButton.title = collapsed ? 'Mostrar playlist' : 'Ocultar playlist';
     }
 
     /**
