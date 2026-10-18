@@ -1,0 +1,10 @@
+{
+  "name": "webdj",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser-based 2-deck DJ mixing app - vanilla JS, no build step, no dependencies.",
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "start": "node dev-server.mjs"
+  }
+}

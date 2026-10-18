@@ -67,36 +67,42 @@ class DJMixApp {
     async initAudioContext() {
         const startOverlay = document.getElementById('startOverlay');
 
-        return new Promise((resolve) => {
+        const hideOverlay = () => {
+            if (startOverlay) {
+                startOverlay.classList.add('hidden');
+                setTimeout(() => startOverlay.remove(), 300);
+            }
+        };
+
+        // Try to init immediately (might work if called from a user event)
+        try {
+            await this.audioEngine.init();
+            hideOverlay();
+            return;
+        } catch (err) {
+            console.info('AudioContext needs a user gesture:', err);
+        }
+
+        // Wait for a gesture. The listener stays attached (and the overlay stays
+        // visible) until the audio engine really starts, so a click that happens
+        // while the page was still loading can never leave the app stuck with
+        // empty decks.
+        await new Promise((resolve) => {
             const initHandler = async () => {
-                await this.audioEngine.init();
+                try {
+                    await this.audioEngine.init();
+                } catch (err) {
+                    console.warn('Could not start audio, click again:', err);
+                    return;
+                }
                 document.removeEventListener('click', initHandler);
                 document.removeEventListener('keydown', initHandler);
-                // Hide the start overlay
-                if (startOverlay) {
-                    startOverlay.classList.add('hidden');
-                    setTimeout(() => startOverlay.remove(), 300);
-                }
+                hideOverlay();
                 resolve();
             };
 
-            // Try to init immediately (might work if called from user event)
-            if (document.readyState === 'complete') {
-                this.audioEngine.init().then(() => {
-                    if (startOverlay) {
-                        startOverlay.classList.add('hidden');
-                        setTimeout(() => startOverlay.remove(), 300);
-                    }
-                    resolve();
-                }).catch(() => {
-                    // If failed, wait for user interaction
-                    document.addEventListener('click', initHandler, { once: true });
-                    document.addEventListener('keydown', initHandler, { once: true });
-                });
-            } else {
-                document.addEventListener('click', initHandler, { once: true });
-                document.addEventListener('keydown', initHandler, { once: true });
-            }
+            document.addEventListener('click', initHandler);
+            document.addEventListener('keydown', initHandler);
         });
     }
 
