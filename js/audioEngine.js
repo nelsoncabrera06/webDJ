@@ -29,6 +29,20 @@ const FX_FLANGER_FEEDBACK_MAX = 0.4;    // feedback at knob 100. Kept moderate o
 const FX_FLANGER_RATE_MIN = 0.25;       // Hz, sweep speed at knob 0
 const FX_FLANGER_RATE_MAX = 2;          // Hz, sweep speed at knob 100
 
+/**
+ * FX echo (slot 3): a delay with decaying repeats, kept in time with the track (the delay
+ * time is derived from the deck BPM, so the repeats land on the beat). The knob scales the
+ * wet mix and the feedback; switched off, both go to 0 and only the dry path is heard.
+ */
+const FX_ECHO_BEATS = 0.75;             // repeat every 3/16 of a bar (a dotted eighth note)
+const FX_ECHO_FALLBACK_BPM = 120;       // used while the deck has no detected BPM yet
+const FX_ECHO_MAX_DELAY = 2;            // s, delay line length (covers slow tempos)
+const FX_ECHO_WET_MIN = 0.3;            // wet mix at knob 0 (switched on there is already one repeat)
+const FX_ECHO_WET_MAX = 0.7;            // wet mix at knob 100
+const FX_ECHO_FEEDBACK_MIN = 0.15;      // feedback at knob 0 (a single, clearly audible repeat)
+const FX_ECHO_FEEDBACK_MAX = 0.55;      // feedback at knob 100, kept below self-oscillation
+const FX_ECHO_DAMP_HZ = 250;            // the repeats lose their low end, so a long tail stays tight
+
 class AudioEngine {
     constructor() {
         this.audioContext = null;
@@ -79,8 +93,11 @@ class AudioEngine {
             eqHigh: null,
             analyser: null,
 
-            // FX: slot 1 is a filter with real nodes; the other slots only store their state
+            // FX: slots 1-3 are real effects (filter, flanger, echo); slot 4 only stores state
             fxFilter: null,
+            fxFlanger: null,
+            fxEcho: null,
+            fxBus: null,        // sums the FX chain so far; it is the input of the echo stage
             fxSlots: null,      // { slot: { type, node, value, enabled } }
 
             // Playback state
@@ -218,11 +235,33 @@ class AudioEngine {
         deck.fxFlanger.lfoDepth.gain.value = FX_FLANGER_DEPTH_MIN;  // LFO swing, in seconds
         deck.fxFlanger.lfo.start();                                 // always running; silent while wet = 0
 
+        // Create the FX echo (slot 3): a delay line with decaying feedback, in time with the
+        // deck (the delay time is refreshed from the deck BPM, see refreshDeckEchoTime).
+        deck.fxEcho = {
+            dry: this.audioContext.createGain(),
+            delay: this.audioContext.createDelay(FX_ECHO_MAX_DELAY),
+            wet: this.audioContext.createGain(),
+            feedback: this.audioContext.createGain(),
+            damp: this.audioContext.createBiquadFilter()    // highpass inside the feedback loop
+        };
+        deck.fxEcho.dry.gain.value = 1;                     // the dry path is always open
+        deck.fxEcho.delay.delayTime.value = this.echoDelaySeconds(deck);    // in time with the deck
+        deck.fxEcho.wet.gain.value = 0;                     // switched off = no repeats
+        deck.fxEcho.feedback.gain.value = 0;
+        deck.fxEcho.damp.type = 'highpass';
+        deck.fxEcho.damp.frequency.value = FX_ECHO_DAMP_HZ;
+        deck.fxEcho.damp.Q.value = 0.7;
+
+        // Bus that sums the filter and the flanger: it is the input of the echo stage, so the
+        // echo repeats the whole FX chain instead of just one of its paths
+        deck.fxBus = this.audioContext.createGain();
+        deck.fxBus.gain.value = 1;
+
         // FX slot state. Slots without audio nodes only keep their value/enabled state.
         deck.fxSlots = {
             1: { type: 'filter', node: deck.fxFilter, value: 0, enabled: false },
             2: { type: 'flanger', node: deck.fxFlanger.wet, value: 0, enabled: false },
-            3: { type: 'echo', node: null, value: 0, enabled: false },
+            3: { type: 'echo', node: deck.fxEcho.wet, value: 0, enabled: false },
             4: { type: null, node: null, value: 0, enabled: false }
         };
 
@@ -230,22 +269,32 @@ class AudioEngine {
         deck.analyser = this.audioContext.createAnalyser();
         deck.analyser.fftSize = 256;
 
-        // Connect chain: eqLow -> eqMid -> eqHigh -> filter -> [dry | flanger] -> gain -> analyser -> master
+        // Connect chain: eqLow -> eqMid -> eqHigh -> filter -> [dry | flanger] -> fxBus
+        //                 -> [dry | echo] -> gain -> analyser -> master
         deck.eqLow.connect(deck.eqMid);
         deck.eqMid.connect(deck.eqHigh);
         deck.eqHigh.connect(deck.fxFilter);
         // Dry path (always open, so the deck is never muted by an FX)
         deck.fxFilter.connect(deck.fxFlanger.dry);
-        deck.fxFlanger.dry.connect(deck.gainNode);
-        // Flanger path: filter -> delay -> wet -> gain, with the delay feeding back into itself
+        deck.fxFlanger.dry.connect(deck.fxBus);
+        // Flanger path: filter -> delay -> wet -> bus, with the delay feeding back into itself
         deck.fxFilter.connect(deck.fxFlanger.delay);
         deck.fxFlanger.delay.connect(deck.fxFlanger.wet);
-        deck.fxFlanger.wet.connect(deck.gainNode);
+        deck.fxFlanger.wet.connect(deck.fxBus);
         deck.fxFlanger.delay.connect(deck.fxFlanger.feedback);
         deck.fxFlanger.feedback.connect(deck.fxFlanger.delay);
         // LFO that sweeps the delay time
         deck.fxFlanger.lfo.connect(deck.fxFlanger.lfoDepth);
         deck.fxFlanger.lfoDepth.connect(deck.fxFlanger.delay.delayTime);
+        // Echo path: bus -> delay -> wet -> gain, with the repeats fed back through a highpass
+        deck.fxBus.connect(deck.fxEcho.dry);
+        deck.fxEcho.dry.connect(deck.gainNode);
+        deck.fxBus.connect(deck.fxEcho.delay);
+        deck.fxEcho.delay.connect(deck.fxEcho.wet);
+        deck.fxEcho.wet.connect(deck.gainNode);
+        deck.fxEcho.delay.connect(deck.fxEcho.damp);
+        deck.fxEcho.damp.connect(deck.fxEcho.feedback);
+        deck.fxEcho.feedback.connect(deck.fxEcho.delay);
         deck.gainNode.connect(deck.analyser);
         deck.analyser.connect(this.masterGain);
 
@@ -529,6 +578,10 @@ class AudioEngine {
         }
 
         this.events.emit('tempoChange', deckId, tempo);
+
+        // Keep a tempo-synced echo in time even while the deck is stopped (the position loop
+        // takes care of it during playback, where the rate ramps smoothly)
+        this.refreshDeckEchoTime(deckId);
     }
 
     /**
@@ -658,7 +711,49 @@ class AudioEngine {
             ramp(feedback.gain, on ? amount * FX_FLANGER_FEEDBACK_MAX : 0);
             ramp(lfoDepth.gain, FX_FLANGER_DEPTH_MIN + amount * (FX_FLANGER_DEPTH_MAX - FX_FLANGER_DEPTH_MIN));
             ramp(lfo.frequency, FX_FLANGER_RATE_MIN + amount * (FX_FLANGER_RATE_MAX - FX_FLANGER_RATE_MIN));
+            return;
         }
+
+        if (fxSlot.type === 'echo') {
+            const { wet, feedback } = deck.fxEcho;
+            // Switched on, even at 0 there is a single repeat; the knob adds wet mix and
+            // feedback up to a long tail
+            ramp(wet.gain, on ? FX_ECHO_WET_MIN + amount * (FX_ECHO_WET_MAX - FX_ECHO_WET_MIN) : 0);
+            ramp(feedback.gain, on ? FX_ECHO_FEEDBACK_MIN + amount * (FX_ECHO_FEEDBACK_MAX - FX_ECHO_FEEDBACK_MIN) : 0);
+            // Put the repeats back in time with the deck (the tempo may have changed meanwhile)
+            this.refreshDeckEchoTime(deck.id);
+        }
+    }
+
+    /**
+     * Delay time of the echo in real seconds: one FX_ECHO_BEATS fraction of a beat at the
+     * deck BPM. The BPM is measured in media time, so the deck playbackRate has to be
+     * divided out to get the time the repeats actually take on the speakers.
+     */
+    echoDelaySeconds(deck) {
+        const bpm = this.getGridBpm(deck.id) || FX_ECHO_FALLBACK_BPM;
+        // The live playbackRate is what the music is really doing (it already includes the sync
+        // and PLL nudges); rateTarget is only the value it is ramping towards.
+        const rate = deck.audioElement?.playbackRate || deck.rateTarget || 1;
+        return Utils.clamp((60 / bpm) * FX_ECHO_BEATS / (rate > 0 ? rate : 1), 0.02, FX_ECHO_MAX_DELAY);
+    }
+
+    /**
+     * Keep the echo in time with the deck: the tempo slider, sync and pitch shift all change
+     * the playbackRate, so the delay time is refreshed from the position loop while the rate
+     * is being ramped. Does nothing while the echo is off, and only writes when the time
+     * actually moved (a rewrite would restart the smoothing on every frame).
+     */
+    refreshDeckEchoTime(deckId) {
+        const deck = this.decks[deckId];
+        if (!deck?.fxEcho) return;
+        if (!deck.fxSlots?.[3]?.enabled) return;
+
+        const delayTime = this.echoDelaySeconds(deck);
+        const param = deck.fxEcho.delay.delayTime;
+        if (Math.abs(param.value - delayTime) < 0.001) return;
+
+        param.setTargetAtTime(delayTime, this.audioContext.currentTime, 0.02);
     }
 
     /**
@@ -1127,6 +1222,9 @@ class AudioEngine {
 
                 // Smoothly ramp playbackRate toward its composed target (no clicks)
                 this.rampRate(deckId, dtSec);
+
+                // Keep a tempo-synced echo in time while the rate ramps (no-op while it is off)
+                this.refreshDeckEchoTime(deckId);
 
                 if (deck.isPlaying && !deck.isPaused) {
                     const position = this.getPosition(deckId);

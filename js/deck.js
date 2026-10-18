@@ -228,7 +228,7 @@ class DeckController {
     /**
      * Setup the FX slots: the knob of each slot sends its value (0..100) to the engine and
      * the button under it switches the effect on/off (lit while it is on).
-     * Slot 1 is a real filter; the other slots only store their state for now.
+     * Slots 1-3 are real effects (filter, flanger, echo); slot 4 only stores its state.
      */
     setupFx() {
         const groups = this.element.querySelectorAll('.fx-knob-group');
