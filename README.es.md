@@ -35,7 +35,7 @@ https://nelsoncabrera06.github.io/webDJ/
 - **Formas de Onda en Canvas a 60 FPS:** Mini-waveforms interactivas de pista completa y visualizador central dual ampliado y desplazable en tiempo real.
 - **Soporte de Hardware Web MIDI:** Integración plug-and-play para consolas DJ, pre-mapeada para la **Behringer CMD Studio 4A** con retroalimentación bidireccional por LEDs.
 - **File System Access API Local:** Navega carpetas locales de tu disco duro de forma segura y arrastra pistas hacia los decks y listas de reproducción.
-- **Suite para DJs:** 8 Hot Cues por deck, creador de bucles (*loops* con /2 y x2), jog wheels para scratching/nudge y Auto-Mixer inteligente.
+- **Suite para DJs:** 8 pads por deck que alternan entre Hot Cues y samples (botones de modo HOT CUE / PADS), creador de bucles (*loops* con /2 y x2), jog wheels para scratching/nudge y Auto-Mixer inteligente.
 
 ---
 
@@ -72,7 +72,7 @@ open http://localhost:8000
 | **Play / Pausa** | `Q` / `W` | `U` / `I` | `Barra Espaciadora` (deck activo) |
 | **Stop / Cue** | `E` / `A` | `O` / `J` | - |
 | **Beat Sync** | `S` | `K` | - |
-| **Hot Cues (1 al 4)** | `1`, `2`, `3`, `4` | `7`, `8`, `9`, `0` | - |
+| **Pads / Hot Cues (1 al 4)** | `1`, `2`, `3`, `4` | `7`, `8`, `9`, `0` | - |
 | **Tempo / Pitch** | `Shift` + `↑` / `↓` | `Shift` + `→` / `←` | - |
 | **Crossfader** | `Z` (Solo A) | `C` (Solo B) | `X` (Centro 50/50) |
 

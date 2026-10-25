@@ -193,7 +193,7 @@ Native integration configured out-of-the-box for the **Behringer CMD Studio 4A**
 | **EQ Mid** | CC (0–127) | CC 97 (Deck A) / CC 100 (Deck B) | Peaking Filter (-12 to +12 dB) |
 | **EQ Low** | CC (0–127) | CC 98 (Deck A) / CC 101 (Deck B) | Low Shelf Filter (-12 to +12 dB) |
 | **Pitch Slider** | Pitch Bend (14-bit) | Channels 0 & 1 | High-res Tempo Fader (0.50x – 1.50x) |
-| **Hot Cues 1–8** | Note On/Off | Ch 0: Notes 34–41 / Ch 1: Notes 66–73 | Trigger or Store Cue Point |
+| **Pads / Hot Cues 1–8** | Note On/Off | Ch 0: Notes 34–41 / Ch 1: Notes 66–73 | Depends on the active mode: hot cue (trigger/store) or sample pad |
 | **Delete Cue** | Note On/Off | Ch 0: Note 42 / Ch 1: Note 74 | Toggle Cue Deletion Mode |
 | **Loop (/2, x2, ON)** | Note On/Off | Ch 0: Notes 23–25 / Ch 1: Notes 55–57 | Halve, Double, or Toggle Beat Loop |
 | **LED Feedback** | Note On Out (Vel 127/0) | Output to physical device | Illuminates controller buttons |
@@ -210,7 +210,7 @@ Native integration configured out-of-the-box for the **Behringer CMD Studio 4A**
 | **Cue** | `A` | `J` | - |
 | **Sync** | `S` | `K` | - |
 | **Active Deck Play/Pause** | - | - | `Spacebar` |
-| **Hot Cues (1–4)** | `1`, `2`, `3`, `4` | `7`, `8`, `9`, `0` | - |
+| **Pads / Hot Cues (1–4)** | `1`, `2`, `3`, `4` | `7`, `8`, `9`, `0` | - |
 | **Tempo Adjust (+/-)** | `Shift` + `↑` / `↓` | `Shift` + `→` / `←` | - |
 | **Crossfader** | `Z` (Full A) | `C` (Full B) | `X` (Center 50/50) |
 
