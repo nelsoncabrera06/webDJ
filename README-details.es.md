@@ -192,7 +192,7 @@ WebDJ incluye un controlador MIDI bidireccional en `midi.js` diseñado para la c
 | **EQ Mid** | CC (0–127) | CC 97 (Deck A) / CC 100 (Deck B) | Filtro Peaking (-12 a +12 dB) |
 | **EQ Low** | CC (0–127) | CC 98 (Deck A) / CC 101 (Deck B) | Filtro Low Shelf (-12 a +12 dB) |
 | **Pitch Slider** | Pitch Bend (14-bit) | Canales 0 y 1 | Ajuste continuo de tempo (0.50x – 1.50x) |
-| **Hot Cues 1–8** | Note On/Off | Ch 0: Notas 34–41 / Ch 1: Notas 66–73 | Disparo o grabado de marcas |
+| **Pads / Hot Cues 1–8** | Note On/Off | Ch 0: Notas 34–41 / Ch 1: Notas 66–73 | Según el modo activo: hot cue (disparo/grabado) o sample pad |
 | **Delete Cue** | Note On/Off | Ch 0: Nota 42 / Ch 1: Nota 74 | Activar modo de borrado de cues |
 | **Loop (/2, x2, ON)** | Note On/Off | Ch 0: Notas 23–25 / Ch 1: Notas 55–57 | Manejo de bucles de compás |
 | **LED Feedback** | Note On Out (Vel 127/0) | Salida hacia la consola | Iluminación de botones en hardware |
@@ -209,7 +209,7 @@ WebDJ incluye un controlador MIDI bidireccional en `midi.js` diseñado para la c
 | **Cue** | `A` | `J` | - |
 | **Sync** | `S` | `K` | - |
 | **Play/Pause Activo** | - | - | `Barra Espaciadora` |
-| **Hot Cues (1 al 4)** | `1`, `2`, `3`, `4` | `7`, `8`, `9`, `0` | - |
+| **Pads / Hot Cues (1 al 4)** | `1`, `2`, `3`, `4` | `7`, `8`, `9`, `0` | - |
 | **Pitch / Tempo (+/-)** | `Shift` + `↑` / `↓` | `Shift` + `→` / `←` | - |
 | **Crossfader** | `Z` (Solo A) | `C` (Solo B) | `X` (Centro) |
 

@@ -120,38 +120,27 @@
                             </div>
                         </div>
 
-                        <!-- Pads Section -->
-                        <div class="pads-section">
-                            <span class="section-label">PADS</span>
-                            <div class="pads-grid">
-                                <button class="pad-btn" id="padA1">1</button>
-                                <button class="pad-btn" id="padA2">2</button>
-                                <button class="pad-btn" id="padA3">3</button>
-                                <button class="pad-btn" id="padA4">4</button>
-                                <button class="pad-btn" id="padA5">5</button>
-                                <button class="pad-btn" id="padA6">6</button>
-                                <button class="pad-btn" id="padA7">7</button>
-                                <button class="pad-btn" id="padA8">8</button>
+                        <!-- Performance pads: the same 8 buttons play hot cues (default mode)
+                             or one-shot samples (PADS mode). The mode row sits above them and
+                             the MIDI hot-cue notes drive whichever mode is selected. -->
+                        <div class="pads-section mode-hotcue" id="padsSectionA">
+                            <span class="section-label">PADS / HOT CUE</span>
+                            <div class="pads-modes" role="group" aria-label="Modo de los pads">
+                                <button class="fx-toggle-btn pad-mode-btn active" id="padModeHotcueA" data-pad-mode="hotcue" aria-pressed="true" title="Hot cues">HOT CUE</button>
+                                <button class="fx-toggle-btn pad-mode-btn" id="padModePadsA" data-pad-mode="pads" aria-pressed="false" title="Pads de samples">PADS</button>
+                                <button class="fx-toggle-btn pad-mode-btn" id="padModeRollA" data-pad-mode="roll" aria-pressed="false" title="Rolls (próximamente)" disabled>ROLL</button>
+                                <button class="fx-toggle-btn pad-mode-btn" id="padModeScratchA" data-pad-mode="scratch" aria-pressed="false" title="Scratch (próximamente)" disabled>SCR</button>
                             </div>
-                        </div>
-
-                        <!-- Hot Cues -->
-                        <div class="hot-cues-container">
-                            <span class="section-label">HOT CUE</span>
-                            <div class="hot-cues-content">
-                                <div class="hot-cues-grid">
-                                    <div class="hot-cues-row">
-                                        <button class="hot-cue-btn" id="hotCueA1">1</button>
-                                        <button class="hot-cue-btn" id="hotCueA2">2</button>
-                                        <button class="hot-cue-btn" id="hotCueA3">3</button>
-                                        <button class="hot-cue-btn" id="hotCueA4">4</button>
-                                    </div>
-                                    <div class="hot-cues-row">
-                                        <button class="hot-cue-btn" id="hotCueA5">5</button>
-                                        <button class="hot-cue-btn" id="hotCueA6">6</button>
-                                        <button class="hot-cue-btn" id="hotCueA7">7</button>
-                                        <button class="hot-cue-btn" id="hotCueA8">8</button>
-                                    </div>
+                            <div class="pads-row">
+                                <div class="pads-grid">
+                                    <button class="pad-btn" id="padA1">1</button>
+                                    <button class="pad-btn" id="padA2">2</button>
+                                    <button class="pad-btn" id="padA3">3</button>
+                                    <button class="pad-btn" id="padA4">4</button>
+                                    <button class="pad-btn" id="padA5">5</button>
+                                    <button class="pad-btn" id="padA6">6</button>
+                                    <button class="pad-btn" id="padA7">7</button>
+                                    <button class="pad-btn" id="padA8">8</button>
                                 </div>
                                 <button class="del-btn" id="delA">DEL</button>
                             </div>
@@ -415,38 +404,25 @@
                             </div>
                         </div>
 
-                        <!-- Pads Section -->
-                        <div class="pads-section">
-                            <span class="section-label">PADS</span>
-                            <div class="pads-grid">
-                                <button class="pad-btn" id="padB1">1</button>
-                                <button class="pad-btn" id="padB2">2</button>
-                                <button class="pad-btn" id="padB3">3</button>
-                                <button class="pad-btn" id="padB4">4</button>
-                                <button class="pad-btn" id="padB5">5</button>
-                                <button class="pad-btn" id="padB6">6</button>
-                                <button class="pad-btn" id="padB7">7</button>
-                                <button class="pad-btn" id="padB8">8</button>
+                        <!-- Performance pads: same unified block as deck A (see comment there). -->
+                        <div class="pads-section mode-hotcue" id="padsSectionB">
+                            <span class="section-label">PADS / HOT CUE</span>
+                            <div class="pads-modes" role="group" aria-label="Modo de los pads">
+                                <button class="fx-toggle-btn pad-mode-btn active" id="padModeHotcueB" data-pad-mode="hotcue" aria-pressed="true" title="Hot cues">HOT CUE</button>
+                                <button class="fx-toggle-btn pad-mode-btn" id="padModePadsB" data-pad-mode="pads" aria-pressed="false" title="Pads de samples">PADS</button>
+                                <button class="fx-toggle-btn pad-mode-btn" id="padModeRollB" data-pad-mode="roll" aria-pressed="false" title="Rolls (próximamente)" disabled>ROLL</button>
+                                <button class="fx-toggle-btn pad-mode-btn" id="padModeScratchB" data-pad-mode="scratch" aria-pressed="false" title="Scratch (próximamente)" disabled>SCR</button>
                             </div>
-                        </div>
-
-                        <!-- Hot Cues -->
-                        <div class="hot-cues-container">
-                            <span class="section-label">HOT CUE</span>
-                            <div class="hot-cues-content">
-                                <div class="hot-cues-grid">
-                                    <div class="hot-cues-row">
-                                        <button class="hot-cue-btn" id="hotCueB1">1</button>
-                                        <button class="hot-cue-btn" id="hotCueB2">2</button>
-                                        <button class="hot-cue-btn" id="hotCueB3">3</button>
-                                        <button class="hot-cue-btn" id="hotCueB4">4</button>
-                                    </div>
-                                    <div class="hot-cues-row">
-                                        <button class="hot-cue-btn" id="hotCueB5">5</button>
-                                        <button class="hot-cue-btn" id="hotCueB6">6</button>
-                                        <button class="hot-cue-btn" id="hotCueB7">7</button>
-                                        <button class="hot-cue-btn" id="hotCueB8">8</button>
-                                    </div>
+                            <div class="pads-row">
+                                <div class="pads-grid">
+                                    <button class="pad-btn" id="padB1">1</button>
+                                    <button class="pad-btn" id="padB2">2</button>
+                                    <button class="pad-btn" id="padB3">3</button>
+                                    <button class="pad-btn" id="padB4">4</button>
+                                    <button class="pad-btn" id="padB5">5</button>
+                                    <button class="pad-btn" id="padB6">6</button>
+                                    <button class="pad-btn" id="padB7">7</button>
+                                    <button class="pad-btn" id="padB8">8</button>
                                 </div>
                                 <button class="del-btn" id="delB">DEL</button>
                             </div>

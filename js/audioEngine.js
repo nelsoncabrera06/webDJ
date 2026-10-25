@@ -572,7 +572,7 @@ class AudioEngine {
         deck.trackName = Utils.getFileNameWithoutExt(file.name);
         deck.duration = deck.audioElement.duration;
         deck.cuePoint = 0;
-        deck.hotCues = [null, null, null, null];
+        deck.hotCues = [null, null, null, null, null, null, null, null];
 
         // Decode audio for waveform and BPM detection
         const arrayBuffer = await file.arrayBuffer();

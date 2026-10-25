@@ -212,21 +212,21 @@ class MIDIController {
             }
             // Hot Cues 1-8
             else if (note === this.mapping.deckA.hotCue1) {
-                this.handleHotCue('A', 1);
+                this.handlePad('A', 1);
             } else if (note === this.mapping.deckA.hotCue2) {
-                this.handleHotCue('A', 2);
+                this.handlePad('A', 2);
             } else if (note === this.mapping.deckA.hotCue3) {
-                this.handleHotCue('A', 3);
+                this.handlePad('A', 3);
             } else if (note === this.mapping.deckA.hotCue4) {
-                this.handleHotCue('A', 4);
+                this.handlePad('A', 4);
             } else if (note === this.mapping.deckA.hotCue5) {
-                this.handleHotCue('A', 5);
+                this.handlePad('A', 5);
             } else if (note === this.mapping.deckA.hotCue6) {
-                this.handleHotCue('A', 6);
+                this.handlePad('A', 6);
             } else if (note === this.mapping.deckA.hotCue7) {
-                this.handleHotCue('A', 7);
+                this.handlePad('A', 7);
             } else if (note === this.mapping.deckA.hotCue8) {
-                this.handleHotCue('A', 8);
+                this.handlePad('A', 8);
             } else if (note === this.mapping.deckA.hotCueDel) {
                 this.deckA.toggleDeleteMode();
             }
@@ -255,21 +255,21 @@ class MIDIController {
             }
             // Hot Cues 1-8
             else if (note === this.mapping.deckB.hotCue1) {
-                this.handleHotCue('B', 1);
+                this.handlePad('B', 1);
             } else if (note === this.mapping.deckB.hotCue2) {
-                this.handleHotCue('B', 2);
+                this.handlePad('B', 2);
             } else if (note === this.mapping.deckB.hotCue3) {
-                this.handleHotCue('B', 3);
+                this.handlePad('B', 3);
             } else if (note === this.mapping.deckB.hotCue4) {
-                this.handleHotCue('B', 4);
+                this.handlePad('B', 4);
             } else if (note === this.mapping.deckB.hotCue5) {
-                this.handleHotCue('B', 5);
+                this.handlePad('B', 5);
             } else if (note === this.mapping.deckB.hotCue6) {
-                this.handleHotCue('B', 6);
+                this.handlePad('B', 6);
             } else if (note === this.mapping.deckB.hotCue7) {
-                this.handleHotCue('B', 7);
+                this.handlePad('B', 7);
             } else if (note === this.mapping.deckB.hotCue8) {
-                this.handleHotCue('B', 8);
+                this.handlePad('B', 8);
             } else if (note === this.mapping.deckB.hotCueDel) {
                 this.deckB.toggleDeleteMode();
             }
@@ -440,19 +440,22 @@ class MIDIController {
     }
 
     /**
-     * Handle hot cue button press
+     * Handle one of the 8 shared pad buttons.
+     *
+     * These notes were the hot cue notes before the pads and hot cues were unified, so
+     * the hardware keeps the exact same mapping. The deck controller applies the mode
+     * selected on screen: hot cue (jump/set/delete) or sample pad (play the one-shot).
      */
-    handleHotCue(deckId, index) {
+    handlePad(deckId, index) {
         const deckController = deckId === 'A' ? this.deckA : this.deckB;
 
-        // Check if we're in delete mode
-        if (deckController.deleteMode) {
-            this.audioEngine.clearHotCue(deckId, index);
-            deckController.exitDeleteMode();
-        } else {
-            // Go to hot cue or set it if not set
-            this.audioEngine.goToHotCue(deckId, index);
+        if (deckController) {
+            deckController.handlePadPress(index);
+            return;
         }
+
+        // Fallback if the UI controller is not ready yet: keep the old hot cue behaviour.
+        this.audioEngine.goToHotCue(deckId, index);
     }
 
     /**

@@ -145,22 +145,22 @@ class DJMixApp {
                     this.audioEngine.sync('A');
                     break;
 
-                // Deck A Hot Cues (1-4)
+                // Deck A shared pads (hot cues or samples, depending on the selected mode)
                 case 'Digit1':
                     e.preventDefault();
-                    this.audioEngine.goToHotCue('A', 1);
+                    this.deckA.handlePadPress(1);
                     break;
                 case 'Digit2':
                     e.preventDefault();
-                    this.audioEngine.goToHotCue('A', 2);
+                    this.deckA.handlePadPress(2);
                     break;
                 case 'Digit3':
                     e.preventDefault();
-                    this.audioEngine.goToHotCue('A', 3);
+                    this.deckA.handlePadPress(3);
                     break;
                 case 'Digit4':
                     e.preventDefault();
-                    this.audioEngine.goToHotCue('A', 4);
+                    this.deckA.handlePadPress(4);
                     break;
 
                 // Deck B controls
@@ -185,22 +185,22 @@ class DJMixApp {
                     this.audioEngine.sync('B');
                     break;
 
-                // Deck B Hot Cues (7-0)
+                // Deck B shared pads (hot cues or samples, depending on the selected mode)
                 case 'Digit7':
                     e.preventDefault();
-                    this.audioEngine.goToHotCue('B', 1);
+                    this.deckB.handlePadPress(1);
                     break;
                 case 'Digit8':
                     e.preventDefault();
-                    this.audioEngine.goToHotCue('B', 2);
+                    this.deckB.handlePadPress(2);
                     break;
                 case 'Digit9':
                     e.preventDefault();
-                    this.audioEngine.goToHotCue('B', 3);
+                    this.deckB.handlePadPress(3);
                     break;
                 case 'Digit0':
                     e.preventDefault();
-                    this.audioEngine.goToHotCue('B', 4);
+                    this.deckB.handlePadPress(4);
                     break;
 
                 // Tempo adjustments

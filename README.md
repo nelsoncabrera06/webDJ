@@ -35,7 +35,7 @@ https://nelsoncabrera06.github.io/webDJ/
 - **60 FPS Canvas Waveforms:** Full-track interactive mini-waveforms and dynamic dual synchronized scrolling waveforms.
 - **Web MIDI Hardware Support:** Plug-and-play controller integration pre-mapped for the **Behringer CMD Studio 4A** with bidirectional LED feedback.
 - **Local File System Access API:** Directly browse and stream local folders and drag-and-drop tracks into decks and playlists.
-- **Performance DJ Suite:** 8 Hot Cues per deck, dynamic beat looper (/2, x2), vinyl scratch/nudge platters, and smart Auto-Mixer.
+- **Performance DJ Suite:** 8 pads per deck shared between Hot Cues and samples (HOT CUE / PADS mode buttons), dynamic beat looper (/2, x2), vinyl scratch/nudge platters, and smart Auto-Mixer.
 
 ---
 
@@ -72,7 +72,7 @@ open http://localhost:8000
 | **Play / Pause** | `Q` / `W` | `U` / `I` | `Space` (active deck) |
 | **Stop / Cue** | `E` / `A` | `O` / `J` | - |
 | **Beat Sync** | `S` | `K` | - |
-| **Hot Cues (1–4)** | `1`, `2`, `3`, `4` | `7`, `8`, `9`, `0` | - |
+| **Pads / Hot Cues (1–4)** | `1`, `2`, `3`, `4` | `7`, `8`, `9`, `0` | - |
 | **Pitch / Tempo** | `Shift` + `↑` / `↓` | `Shift` + `→` / `←` | - |
 | **Crossfader** | `Z` (Deck A) | `C` (Deck B) | `X` (Center 50/50) |
 
