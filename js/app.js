@@ -134,7 +134,8 @@ class DJMixApp {
                     break;
                 case 'KeyE':
                     e.preventDefault();
-                    this.audioEngine.stop('A');
+                    // Deck STOP (not audioEngine.stop): STOP also clears the deck for the next song
+                    this.deckA.stop();
                     break;
                 case 'KeyA':
                     e.preventDefault();
@@ -174,7 +175,8 @@ class DJMixApp {
                     break;
                 case 'KeyO':
                     e.preventDefault();
-                    this.audioEngine.stop('B');
+                    // Deck STOP (not audioEngine.stop): STOP also clears the deck for the next song
+                    this.deckB.stop();
                     break;
                 case 'KeyJ':
                     e.preventDefault();

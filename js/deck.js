@@ -727,6 +727,9 @@ class DeckController {
 
     stop() {
         this.audioEngine.stop(this.deckId);
+        // STOP is also "clear the deck for the next song": same reset as loading a track
+        // (FX off and at 0, flat EQ, loop off, hot cues erased). Tempo and pitch stay on the faders.
+        this.audioEngine.resetDeckControls(this.deckId);
     }
 
     cue() {
