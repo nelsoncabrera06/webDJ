@@ -519,6 +519,45 @@ class AudioEngine {
     }
 
     /**
+     * Put a deck back to a neutral state: FX off and at 0, EQ flat, loop off, no hot cues.
+     * Called on every track load so a new song never inherits the FX/EQ/loop of the previous
+     * one — very audible with AutoMix, where the incoming deck kept the old track's effects.
+     * Tempo and pitch are left alone on purpose: they belong to the deck's faders, not to the song.
+     */
+    resetDeckControls(deckId) {
+        const deck = this.decks[deckId];
+        if (!deck) return;
+
+        // FX slots: knobs back to 0 and every effect switched off
+        Object.values(deck.fxSlots || {}).forEach(fxSlot => {
+            fxSlot.value = 0;
+            fxSlot.enabled = false;
+            this.applyDeckFxSlot(deck, fxSlot);
+        });
+
+        // EQ back to flat: a killed band would carry over to the new song
+        if (deck.eqLow) {
+            this.setEQ(deckId, 'low', 0);
+            this.setEQ(deckId, 'mid', 0);
+            this.setEQ(deckId, 'high', 0);
+        }
+
+        // Loop off: loopStart/loopEnd still point at the previous song
+        if (deck.loopEnabled) {
+            deck.loopEnabled = false;
+            deck.loopStart = 0;
+            deck.loopEnd = 0;
+            this.events.emit('loopDisabled', deckId);
+        }
+
+        // Hot cues belong to the song that is going away
+        deck.hotCues = [null, null, null, null, null, null, null, null];
+
+        // One event so the UI puts its knobs, LEDs and pads back to neutral
+        this.events.emit('controlsReset', deckId);
+    }
+
+    /**
      * Load audio file into a deck
      */
     async loadTrack(deckId, file) {
@@ -526,6 +565,9 @@ class AudioEngine {
 
         // Stop current playback
         this.stop(deckId);
+
+        // The new song starts clean (no FX, flat EQ, loop off, no hot cues)
+        this.resetDeckControls(deckId);
 
         // Cleanup previous object URL
         if (deck.objectUrl) {
@@ -572,7 +614,7 @@ class AudioEngine {
         deck.trackName = Utils.getFileNameWithoutExt(file.name);
         deck.duration = deck.audioElement.duration;
         deck.cuePoint = 0;
-        deck.hotCues = [null, null, null, null, null, null, null, null];
+        // hot cues were already cleared by resetDeckControls()
 
         // Decode audio for waveform and BPM detection
         const arrayBuffer = await file.arrayBuffer();
