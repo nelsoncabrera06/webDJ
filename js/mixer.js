@@ -123,6 +123,20 @@ class MixerController {
         this.audioEngine.on('volumeLevel', (deckId, level) => {
             this.updateMeter(deckId, level);
         });
+
+        // A new track on a deck brings its EQ back to flat: show the knobs centred again
+        this.audioEngine.on('controlsReset', (deckId) => {
+            this.resetDeckEq(deckId);
+        });
+    }
+
+    /**
+     * Reset the three EQ knobs of one deck (the engine already set the gains to 0 dB)
+     */
+    resetDeckEq(deckId) {
+        ['eqHigh', 'eqMid', 'eqLow'].forEach(band => {
+            this.knobs[`${band}${deckId}`]?.reset();
+        });
     }
 
     /**

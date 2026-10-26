@@ -421,6 +421,19 @@ class DeckController {
     }
 
     /**
+     * Put the FX row back to neutral after a track load: knobs at 0, toggles off and unlit.
+     * The engine state was already reset by AudioEngine.resetDeckControls(); going through
+     * the Knob keeps the on-screen value and the engine reading the same.
+     */
+    resetFxControls() {
+        this.fxSlots?.forEach(fx => {
+            fx.knob.setValue(0);
+            fx.element.classList.remove('on');
+            fx.toggleButton.setAttribute('aria-pressed', 'false');
+        });
+    }
+
+    /**
      * Setup drag and drop for file loading.
      * The whole song area (header + waveform + load zone) accepts the drop, not just the
      * small load zone, so a track can be dropped anywhere over the deck's upper half.
@@ -568,6 +581,14 @@ class DeckController {
             if (deckId !== this.deckId) return;
             this.updateLoopDisplay(beats);
         });
+
+        // New track on this deck: engine cleared its state, now match it on screen
+        this.audioEngine.on('controlsReset', (deckId) => {
+            if (deckId !== this.deckId) return;
+            this.resetFxControls();
+            this.updatePadButtons();
+            this.updateWaveformHotCues();
+        });
     }
 
     /**
@@ -603,10 +624,6 @@ class DeckController {
 
             // Reset position indicator
             this.updatePosition(0, this.duration);
-
-            // A new track starts without hot cues: clear any lit border from the previous one
-            this.updatePadButtons();
-
         } catch (error) {
             console.error('Error loading track:', error);
             this.elements.trackName.textContent = 'Error loading file';
@@ -710,6 +727,9 @@ class DeckController {
 
     stop() {
         this.audioEngine.stop(this.deckId);
+        // STOP is also "clear the deck for the next song": same reset as loading a track
+        // (FX off and at 0, flat EQ, loop off, hot cues erased). Tempo and pitch stay on the faders.
+        this.audioEngine.resetDeckControls(this.deckId);
     }
 
     cue() {
