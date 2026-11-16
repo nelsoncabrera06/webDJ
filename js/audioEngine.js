@@ -76,6 +76,11 @@ class AudioEngine {
         this.sampleLibrary = SAMPLE_LIBRARY.map(sample => ({ ...sample }));
         this.sampleBuffers = [];
 
+        // BPM + waveform analysis, kept off the main thread (see getAnalysisWorker)
+        this.analysisWorker = undefined;   // undefined: not created yet, null: unavailable
+        this.analysisRequestId = 0;
+        this.analysisRequests = new Map();
+
         // Deck states
         this.decks = {
             A: this.createDeckState('A'),
@@ -571,21 +576,19 @@ class AudioEngine {
      *
      * The full-rate PCM is 8 bytes per stereo frame (~60 MB for a 2.5 minute song), while
      * everything the deck keeps afterwards is a few tens of KB. Mixing down to mono and
-     * averaging blocks of samples (a cheap low-pass) leaves ~13 MB at 11 kHz, and the
+     * averaging blocks of samples (a cheap low-pass) leaves ~12 MB at 11 kHz, and the
      * analysis loops also run 4x fewer iterations.
      *
+     * Plain Float32Array on purpose: it is what the analysis worker receives.
+     *
      * @param {AudioBuffer} audioBuffer - decoded track (full rate, any channel count)
-     * @returns {AudioBuffer} mono analysis copy
+     * @returns {{samples: Float32Array, sampleRate: number, duration: number}}
      */
-    createAnalysisBuffer(audioBuffer) {
+    createAnalysisSamples(audioBuffer) {
         const factor = Math.max(1, Math.round(audioBuffer.sampleRate / ANALYSIS_SAMPLE_RATE));
         const frames = Math.max(1, Math.floor(audioBuffer.length / factor));
-        const analysis = this.audioContext.createBuffer(
-            1,
-            frames,
-            audioBuffer.sampleRate / factor
-        );
-        const out = analysis.getChannelData(0);
+        const sampleRate = audioBuffer.sampleRate / factor;
+        const samples = new Float32Array(frames);
         const channels = [];
         for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
             channels.push(audioBuffer.getChannelData(channel));
@@ -601,10 +604,99 @@ class AudioEngine {
                 }
                 sum += block / factor;
             }
-            out[i] = sum / channels.length;
+            samples[i] = sum / channels.length;
         }
 
-        return analysis;
+        return { samples, sampleRate, duration: samples.length / sampleRate };
+    }
+
+    /**
+     * Lazily create the analysis worker.
+     *
+     * Returns null when workers are unavailable or the script could not be loaded, so the
+     * caller can fall back to analyzing on the main thread.
+     */
+    getAnalysisWorker() {
+        if (this.analysisWorker !== undefined) return this.analysisWorker;
+        if (typeof Worker === 'undefined') {
+            this.analysisWorker = null;
+            return null;
+        }
+
+        const worker = new Worker('js/analysisWorker.js');
+
+        worker.onmessage = (event) => {
+            const { id, ok, bpmResult, waveformData, error } = event.data || {};
+            const pending = this.analysisRequests.get(id);
+            if (!pending) return;
+            this.analysisRequests.delete(id);
+            if (ok) {
+                pending.resolve({ bpmResult, waveformData });
+            } else {
+                pending.reject(new Error(error || 'Analysis failed'));
+            }
+        };
+
+        worker.onerror = (event) => {
+            // The worker could not even load its scripts (or failed outside the handler):
+            // fail every pending request and use the main-thread path from now on.
+            worker.terminate();
+            if (this.analysisWorker === worker) {
+                this.analysisWorker = null;
+            }
+            const error = new Error((event && event.message) || 'Analysis worker error');
+            for (const pending of this.analysisRequests.values()) pending.reject(error);
+            this.analysisRequests.clear();
+        };
+
+        this.analysisWorker = worker;
+        return worker;
+    }
+
+    /**
+     * Detect the BPM / beat grid and build the waveform for a decoded track.
+     *
+     * Prefers the worker: the analysis is the only part of a load that used to freeze the
+     * UI for a couple hundred milliseconds while the other deck kept playing.
+     */
+    async analyzeTrack(analysis) {
+        const worker = this.getAnalysisWorker();
+
+        if (worker) {
+            try {
+                return await new Promise((resolve, reject) => {
+                    const id = ++this.analysisRequestId;
+                    this.analysisRequests.set(id, { resolve, reject });
+                    // Copy instead of transfer: the array is small (~12 MB) and keeping the
+                    // original lets the main-thread fallback run if the worker dies.
+                    worker.postMessage({
+                        id,
+                        samples: analysis.samples.slice(),
+                        sampleRate: analysis.sampleRate,
+                        duration: analysis.duration
+                    });
+                });
+            } catch (error) {
+                console.warn('Analysis worker failed, using the main thread:', error);
+            }
+        }
+
+        return this.analyzeOnMainThread(analysis);
+    }
+
+    /** Same analysis as the worker, for the fallback path. */
+    async analyzeOnMainThread(analysis) {
+        const bufferLike = {
+            length: analysis.samples.length,
+            numberOfChannels: 1,
+            sampleRate: analysis.sampleRate,
+            duration: analysis.duration,
+            getChannelData: () => analysis.samples
+        };
+
+        const bpmResult = await new BPMDetector().detect(bufferLike);
+        const waveformData = new WaveformGenerator().generate(bufferLike);
+        return { bpmResult, waveformData };
     }
 
     /**
@@ -674,32 +766,24 @@ class AudioEngine {
         // (nulled explicitly so the analysis below does not run with it still alive).
         const arrayBuffer = await file.arrayBuffer();
         let decoded = await this.audioContext.decodeAudioData(arrayBuffer);
-        const analysisBuffer = this.createAnalysisBuffer(decoded);
+        const analysis = this.createAnalysisSamples(decoded);
         decoded = null;
 
+        let waveformData = null;
         try {
-            // Detect BPM and beat grid
-            const bpmDetector = new BPMDetector();
-            const bpmResult = await bpmDetector.detect(analysisBuffer);
-            deck.bpm = bpmResult.bpm;
-            deck.beatOffset = bpmResult.beatOffset;
-            deck.beatGrid = bpmResult.beatGrid || { bpm: deck.bpm, firstBeatTime: 0, confidence: 0 };
+            // BPM, beat grid and waveform: in a worker whenever possible
+            const result = await this.analyzeTrack(analysis);
+            deck.bpm = result.bpmResult.bpm;
+            deck.beatOffset = result.bpmResult.beatOffset;
+            deck.beatGrid = result.bpmResult.beatGrid || { bpm: deck.bpm, firstBeatTime: 0, confidence: 0 };
+            waveformData = result.waveformData;
         } catch (err) {
             // A failed analysis must not make the track unloadable: no grid, but it plays
-            console.warn(`Deck ${deckId}: BPM detection failed`, err);
+            console.warn(`Deck ${deckId}: track analysis failed`, err);
         }
 
         // A new track invalidates any sync involving this deck
         this.clearSync(deckId);
-
-        // Generate waveform
-        let waveformData = null;
-        try {
-            const waveformGenerator = new WaveformGenerator();
-            waveformData = waveformGenerator.generate(analysisBuffer);
-        } catch (err) {
-            console.warn(`Deck ${deckId}: waveform generation failed`, err);
-        }
 
         // The song is ready: only the waveform and the beat grid survive the analysis
         deck.hasTrack = true;

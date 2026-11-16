@@ -13,6 +13,9 @@ GEMINI.md
 # Contexto local de OpenCode / agentes (no publicar)
 AGENTS.md
 
+# Notas de trabajo de rendimiento (no publicar)
+webdj-rendimiento-hallazgos.md
+
 # Artefactos de Playwright MCP (snapshots/logs de pruebas)
 .playwright-mcp/
 
