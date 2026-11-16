@@ -80,6 +80,9 @@ class WaveformVisualizer {
         this.bpm = 0; // BPM for beat markers
         this.hotCues = [null, null, null, null, null, null, null, null]; // Hot cue positions in seconds
 
+        // Offscreen layer with the static bars (see buildBarsCache / buildCache)
+        this.barsCache = null;
+
         // Hot cue colors (8 colors for hot cues 1-8)
         this.hotCueColors = [
             '#FF0000', // 1 - Rojo
@@ -136,6 +139,18 @@ class WaveformVisualizer {
 
         this.width = rect.width;
         this.height = rect.height;
+
+        this.invalidateCache();
+    }
+
+    /**
+     * Throw away the offscreen layers. They are tied to the canvas size, the track data
+     * and (for the zoomed view) the tempo / beat grid.
+     */
+    invalidateCache() {
+        this.barsCache = null;
+        this.cache = null;
+        this.lastRenderKey = null;
     }
 
     /**
@@ -146,6 +161,7 @@ class WaveformVisualizer {
     setData(data, duration) {
         this.waveformData = data;
         this.duration = duration;
+        this.invalidateCache();
         this.render();
     }
 
@@ -236,54 +252,127 @@ class WaveformVisualizer {
 
         const { ctx, width, height, waveformData, options } = this;
 
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
-
-        if (options.backgroundColor !== 'transparent') {
-            ctx.fillStyle = options.backgroundColor;
-            ctx.fillRect(0, 0, width, height);
+        if (!waveformData || waveformData.length === 0) {
+            ctx.clearRect(0, 0, width, height);
+            if (options.backgroundColor !== 'transparent') {
+                ctx.fillStyle = options.backgroundColor;
+                ctx.fillRect(0, 0, width, height);
+            }
+            this.lastRenderKey = null;
+            return;
         }
 
-        if (!waveformData || waveformData.length === 0) return;
+        // The bars of a loaded track never move in this view (the whole song fits in the
+        // canvas): paint them once into an offscreen layer and blit it every frame.
+        if (!this.barsCache) this.buildBarsCache();
 
-        // Calculate bar positions
+        if (!this.barsCache) {
+            ctx.clearRect(0, 0, width, height);
+            if (options.backgroundColor !== 'transparent') {
+                ctx.fillStyle = options.backgroundColor;
+                ctx.fillRect(0, 0, width, height);
+            }
+            this.lastRenderKey = null;
+            return;
+        }
+
         const totalBars = Math.floor(width / (options.barWidth + options.barGap));
-        const samplesPerBar = waveformData.length / totalBars;
         const positionBar = Math.floor(this.position * totalBars);
+        const playedWidth = positionBar * (options.barWidth + options.barGap);
 
-        // Create gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, options.colorTop);
-        gradient.addColorStop(0.5, options.colorBottom);
-        gradient.addColorStop(1, options.colorTop);
+        // Between two bars nothing visible changes: the transport moves this view at
+        // 30 FPS, but the picture only changes when the playhead crosses a bar (or a hot
+        // cue moves). Skipping those frames keeps the main thread free while the other
+        // deck is playing.
+        const renderKey = `${positionBar}|${this.hotCues.join(',')}`;
+        if (this.lastRenderKey === renderKey && this.lastRenderData === waveformData) return;
+        this.lastRenderKey = renderKey;
+        this.lastRenderData = waveformData;
 
-        // Draw bars
-        for (let i = 0; i < totalBars; i++) {
-            const sampleIndex = Math.floor(i * samplesPerBar);
-            const amplitude = waveformData[sampleIndex] || 0;
+        // The cache layers already carry the background colour, so the clear is enough
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(this.barsCache.normal, 0, 0, width, height);
 
-            const x = i * (options.barWidth + options.barGap);
-            const barHeight = amplitude * (height * 0.9);
-
-            // Choose color based on position
-            if (options.playedColor && i < positionBar) {
-                ctx.fillStyle = options.playedColor;
-            } else {
-                ctx.fillStyle = gradient;
-            }
-
-            if (options.mirror) {
-                // Draw mirrored bars (from center)
-                const y = (height - barHeight) / 2;
-                ctx.fillRect(x, y, options.barWidth, barHeight);
-            } else {
-                // Draw from bottom
-                ctx.fillRect(x, height - barHeight, options.barWidth, barHeight);
-            }
+        if (this.barsCache.played && playedWidth > 0) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, playedWidth, height);
+            ctx.clip();
+            // Clear before blitting: the played bars use a different alpha and
+            // painting them over the gradient would blend both.
+            ctx.clearRect(0, 0, playedWidth, height);
+            ctx.drawImage(this.barsCache.played, 0, 0, width, height);
+            ctx.restore();
         }
 
         // Draw hot cue markers on top
         this.drawHotCueMarkers();
+    }
+
+    /**
+     * Paint the static bars of the whole track into offscreen canvases.
+     *
+     * Two layers: the normal gradient and the "played" colour. Both are drawn at device
+     * resolution, so blitting them back is a 1:1 copy (no resampling, same pixels).
+     */
+    buildBarsCache() {
+        const { width, height, waveformData, options } = this;
+        if (!this.ctx || !width || !height || !waveformData || waveformData.length === 0) {
+            this.barsCache = null;
+            return;
+        }
+
+        const dpr = window.devicePixelRatio || 1;
+        const totalBars = Math.floor(width / (options.barWidth + options.barGap));
+        const samplesPerBar = waveformData.length / totalBars;
+
+        const paint = (fillStyleFor) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(width * dpr));
+            canvas.height = Math.max(1, Math.round(height * dpr));
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            // Bake the background into the layer: blitting a full-canvas layer must not
+            // erase what was configured in options.backgroundColor.
+            if (options.backgroundColor !== 'transparent') {
+                ctx.fillStyle = options.backgroundColor;
+                ctx.fillRect(0, 0, width, height);
+            }
+
+            const fillStyle = fillStyleFor(ctx);
+            ctx.fillStyle = fillStyle;
+
+            for (let i = 0; i < totalBars; i++) {
+                const sampleIndex = Math.floor(i * samplesPerBar);
+                const amplitude = waveformData[sampleIndex] || 0;
+
+                const x = i * (options.barWidth + options.barGap);
+                const barHeight = amplitude * (height * 0.9);
+
+                if (options.mirror) {
+                    const y = (height - barHeight) / 2;
+                    ctx.fillRect(x, y, options.barWidth, barHeight);
+                } else {
+                    ctx.fillRect(x, height - barHeight, options.barWidth, barHeight);
+                }
+            }
+
+            return canvas;
+        };
+
+        const gradientFor = (ctx) => {
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, options.colorTop);
+            gradient.addColorStop(0.5, options.colorBottom);
+            gradient.addColorStop(1, options.colorTop);
+            return gradient;
+        };
+
+        this.barsCache = {
+            normal: paint(gradientFor),
+            played: options.playedColor ? paint(() => options.playedColor) : null
+        };
     }
 
     /**
@@ -292,6 +381,7 @@ class WaveformVisualizer {
     clear() {
         this.waveformData = null;
         this.position = 0;
+        this.invalidateCache();
         if (this.ctx && this.width) {
             this.ctx.clearRect(0, 0, this.width, this.height);
         }
@@ -328,6 +418,7 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
      */
     setBPM(bpm) {
         this.bpm = bpm;
+        this.invalidateCache();
         this.render();
     }
 
@@ -337,6 +428,7 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
      */
     setTempo(tempo) {
         this.tempo = tempo;
+        this.invalidateCache();
         this.render();
     }
 
@@ -346,16 +438,22 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
      */
     setBeatOffset(offset) {
         this.beatOffset = offset;
+        this.invalidateCache();
         this.render();
     }
 
     /**
-     * Render zoomed waveform centered on playhead
+     * Render zoomed waveform centered on playhead.
+     *
+     * The window scrolls continuously, so the bars + beat grid are painted into an
+     * offscreen layer a bit wider than the visible window and the matching slice is
+     * blitted every frame. The layer is rebuilt only when the window leaves it (about
+     * every two seconds of playback) or when the data / tempo / size changes.
      */
     render() {
         if (!this.ctx || !this.width) return;
 
-        const { ctx, width, height, waveformData, options, duration, position, bpm } = this;
+        const { ctx, width, height, waveformData, options, duration, position } = this;
         const windowSeconds = this.effectiveWindowSeconds; // Use effective window based on tempo
 
         // Clear canvas
@@ -374,41 +472,118 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
         const startTime = currentTime - halfWindow;
         const endTime = currentTime + halfWindow;
 
-        // Draw beat grid
-        this.drawBeatGrid(ctx, width, height, startTime, endTime);
-
-        // Calculate sample range
-        const samplesPerSecond = waveformData.length / duration;
-        const startSample = Math.floor(Math.max(0, startTime) * samplesPerSecond);
-        const endSample = Math.ceil(Math.min(duration, endTime) * samplesPerSecond);
-
-        // Create gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, options.colorTop);
-        gradient.addColorStop(0.5, options.colorBottom);
-        gradient.addColorStop(1, options.colorTop);
-
-        ctx.fillStyle = gradient;
-
-        // Draw waveform
-        const pixelsPerSecond = width / windowSeconds;
-        const barWidth = Math.max(1, Math.floor(pixelsPerSecond / samplesPerSecond));
-
-        for (let i = startSample; i < endSample && i < waveformData.length; i++) {
-            const sampleTime = i / samplesPerSecond;
-            const x = (sampleTime - startTime) * pixelsPerSecond;
-
-            if (x < 0 || x > width) continue;
-
-            const amplitude = waveformData[i] || 0;
-            const barHeight = amplitude * (height * 0.85);
-            const y = (height - barHeight) / 2;
-
-            ctx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
+        if (!this.cacheCovers(startTime, endTime, windowSeconds)) {
+            this.buildCache(startTime, windowSeconds);
         }
 
-        // Draw hot cue markers with labels
+        if (this.cache) {
+            const dpr = this.cache.dpr;
+            const pixelsPerSecond = width / windowSeconds;
+            const srcX = Math.round((startTime - this.cache.startTime) * pixelsPerSecond * dpr);
+            const srcW = Math.min(this.cache.canvas.width - srcX, Math.round(width * dpr));
+
+            if (srcX >= 0 && srcW > 0) {
+                // Integer source pixel + 1:1 destination: no resampling, same picture
+                ctx.drawImage(
+                    this.cache.canvas,
+                    srcX, 0, srcW, this.cache.canvas.height,
+                    0, 0, srcW / dpr, height
+                );
+            }
+        }
+
+        // Hot cue markers move with the window and are cheap: drawn every frame on top
         this.drawHotCueMarkersZoomed(ctx, width, height, startTime, endTime);
+    }
+
+    /**
+     * Is the offscreen layer still valid and wide enough for this window?
+     */
+    cacheCovers(startTime, endTime, windowSeconds) {
+        const cache = this.cache;
+        if (!cache) return false;
+
+        const dpr = window.devicePixelRatio || 1;
+        return cache.dpr === dpr &&
+            cache.windowSeconds === windowSeconds &&
+            cache.cssWidth === this.width &&
+            cache.cssHeight === this.height &&
+            startTime >= cache.startTime &&
+            endTime <= cache.endTime;
+    }
+
+    /**
+     * Paint bars + beat grid for a window wider than the visible one (25% margin on
+     * each side, so a rebuild happens every ~2 s instead of on every frame).
+     */
+    buildCache(startTime, windowSeconds) {
+        const { width, height, waveformData, duration, options } = this;
+
+        const dpr = window.devicePixelRatio || 1;
+        // Snap the margin to whole CSS pixels: the cache is painted at the exact same
+        // sub-pixel positions the old full redraw used, so blitting it is a faithful
+        // 1:1 copy instead of a half-pixel shifted one.
+        const pixelsPerSecond = width / windowSeconds; // same scale as the visible canvas
+        const marginPx = Math.ceil(width * 0.25);
+        const cacheStart = startTime - marginPx / pixelsPerSecond;
+        const cacheWidth = width + marginPx * 2;
+        const cacheSeconds = cacheWidth / pixelsPerSecond;
+        const pxWidth = Math.max(1, Math.round(cacheWidth * dpr));
+        const pxHeight = Math.max(1, Math.round(height * dpr));
+
+        // Reuse the canvas between rebuilds (it only changes with size / tempo)
+        let canvas = this.cache && this.cache.canvas;
+        if (!canvas || canvas.width !== pxWidth || canvas.height !== pxHeight) {
+            canvas = document.createElement('canvas');
+            canvas.width = pxWidth;
+            canvas.height = pxHeight;
+        }
+
+        const cacheCtx = canvas.getContext('2d');
+        cacheCtx.setTransform(1, 0, 0, 1, 0, 0);
+        cacheCtx.clearRect(0, 0, pxWidth, pxHeight);
+        cacheCtx.scale(dpr, dpr);
+
+        const cacheEnd = cacheStart + cacheSeconds;
+
+        // Beat grid first, so the bars sit on top of it exactly like before
+        this.drawBeatGrid(cacheCtx, cacheWidth, height, cacheStart, cacheEnd, pixelsPerSecond);
+
+        if (waveformData && waveformData.length > 0 && duration > 0) {
+            const samplesPerSecond = waveformData.length / duration;
+            const startSample = Math.max(0, Math.floor(cacheStart * samplesPerSecond));
+            const endSample = Math.min(waveformData.length, Math.ceil(cacheEnd * samplesPerSecond));
+            const barWidth = Math.max(1, Math.floor(pixelsPerSecond / samplesPerSecond));
+
+            const gradient = cacheCtx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, options.colorTop);
+            gradient.addColorStop(0.5, options.colorBottom);
+            gradient.addColorStop(1, options.colorTop);
+            cacheCtx.fillStyle = gradient;
+
+            for (let i = startSample; i < endSample; i++) {
+                const sampleTime = i / samplesPerSecond;
+                const x = (sampleTime - cacheStart) * pixelsPerSecond;
+
+                if (x < 0 || x > cacheWidth) continue;
+
+                const amplitude = waveformData[i] || 0;
+                const barHeight = amplitude * (height * 0.85);
+                const y = (height - barHeight) / 2;
+
+                cacheCtx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
+            }
+        }
+
+        this.cache = {
+            canvas,
+            startTime: cacheStart,
+            endTime: cacheEnd,
+            windowSeconds,
+            dpr,
+            cssWidth: width,
+            cssHeight: height
+        };
     }
 
     /**
@@ -450,11 +625,10 @@ class ZoomedWaveformVisualizer extends WaveformVisualizer {
     /**
      * Draw beat grid lines
      */
-    drawBeatGrid(ctx, width, height, startTime, endTime) {
+    drawBeatGrid(ctx, width, height, startTime, endTime, pixelsPerSecond = width / this.effectiveWindowSeconds) {
         // Use effective BPM (original BPM * tempo)
         const effectiveBpm = this.bpm * this.tempo;
         const secondsPerBeat = 60 / effectiveBpm;
-        const pixelsPerSecond = width / this.effectiveWindowSeconds;
 
         // Calculate beat offset adjusted for tempo
         const adjustedBeatOffset = this.beatOffset * this.tempo;
