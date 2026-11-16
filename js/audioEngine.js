@@ -61,6 +61,14 @@ const SAMPLE_LIBRARY = [
 ];
 const SAMPLE_MAX_DURATION_SECONDS = 30;
 
+/**
+ * Sample rate of the small mono copy used for BPM detection and waveform generation.
+ * The decoded track is 48 kHz stereo float32 (~60-80 MB for a demo-length song), but the
+ * only things the UI keeps from it are the waveform (~60 KB) and the beat grid, so it is
+ * analyzed through this decimated copy and then dropped.
+ */
+const ANALYSIS_SAMPLE_RATE = 11025;
+
 class AudioEngine {
     constructor() {
         this.audioContext = null;
@@ -160,8 +168,9 @@ class AudioEngine {
             // For linked/independent mode
             preservesPitch: true,
 
-            // Original audio buffer for waveform/BPM
-            audioBuffer: null,
+            // Whether a track is loaded and playable. Replaces the old "keep the whole
+            // decoded buffer around just to know if there is a track" test.
+            hasTrack: false,
 
             // Sample assigned to each performance pad (sample library index)
             padSampleAssignments: SAMPLE_LIBRARY.map((_, index) => index),
@@ -558,6 +567,47 @@ class AudioEngine {
     }
 
     /**
+     * Build the small mono copy of a decoded track used for BPM and waveform analysis.
+     *
+     * The full-rate PCM is 8 bytes per stereo frame (~60 MB for a 2.5 minute song), while
+     * everything the deck keeps afterwards is a few tens of KB. Mixing down to mono and
+     * averaging blocks of samples (a cheap low-pass) leaves ~13 MB at 11 kHz, and the
+     * analysis loops also run 4x fewer iterations.
+     *
+     * @param {AudioBuffer} audioBuffer - decoded track (full rate, any channel count)
+     * @returns {AudioBuffer} mono analysis copy
+     */
+    createAnalysisBuffer(audioBuffer) {
+        const factor = Math.max(1, Math.round(audioBuffer.sampleRate / ANALYSIS_SAMPLE_RATE));
+        const frames = Math.max(1, Math.floor(audioBuffer.length / factor));
+        const analysis = this.audioContext.createBuffer(
+            1,
+            frames,
+            audioBuffer.sampleRate / factor
+        );
+        const out = analysis.getChannelData(0);
+        const channels = [];
+        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+            channels.push(audioBuffer.getChannelData(channel));
+        }
+
+        for (let i = 0; i < frames; i++) {
+            const base = i * factor;
+            let sum = 0;
+            for (const data of channels) {
+                let block = 0;
+                for (let j = 0; j < factor; j++) {
+                    block += data[base + j] || 0;
+                }
+                sum += block / factor;
+            }
+            out[i] = sum / channels.length;
+        }
+
+        return analysis;
+    }
+
+    /**
      * Load audio file into a deck
      */
     async loadTrack(deckId, file) {
@@ -565,6 +615,9 @@ class AudioEngine {
 
         // Stop current playback
         this.stop(deckId);
+
+        // The deck is not ready again until the new song is decoded and analyzed
+        deck.hasTrack = false;
 
         // The new song starts clean (no FX, flat EQ, loop off, no hot cues)
         this.resetDeckControls(deckId);
@@ -616,23 +669,40 @@ class AudioEngine {
         deck.cuePoint = 0;
         // hot cues were already cleared by resetDeckControls()
 
-        // Decode audio for waveform and BPM detection
+        // Decode the file and immediately fold it into the small analysis copy.
+        // `decoded` is a local: once the copy exists the full-rate PCM can be collected
+        // (nulled explicitly so the analysis below does not run with it still alive).
         const arrayBuffer = await file.arrayBuffer();
-        deck.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+        let decoded = await this.audioContext.decodeAudioData(arrayBuffer);
+        const analysisBuffer = this.createAnalysisBuffer(decoded);
+        decoded = null;
 
-        // Detect BPM and beat grid
-        const bpmDetector = new BPMDetector();
-        const bpmResult = await bpmDetector.detect(deck.audioBuffer);
-        deck.bpm = bpmResult.bpm;
-        deck.beatOffset = bpmResult.beatOffset;
-        deck.beatGrid = bpmResult.beatGrid || { bpm: deck.bpm, firstBeatTime: 0, confidence: 0 };
+        try {
+            // Detect BPM and beat grid
+            const bpmDetector = new BPMDetector();
+            const bpmResult = await bpmDetector.detect(analysisBuffer);
+            deck.bpm = bpmResult.bpm;
+            deck.beatOffset = bpmResult.beatOffset;
+            deck.beatGrid = bpmResult.beatGrid || { bpm: deck.bpm, firstBeatTime: 0, confidence: 0 };
+        } catch (err) {
+            // A failed analysis must not make the track unloadable: no grid, but it plays
+            console.warn(`Deck ${deckId}: BPM detection failed`, err);
+        }
 
         // A new track invalidates any sync involving this deck
         this.clearSync(deckId);
 
         // Generate waveform
-        const waveformGenerator = new WaveformGenerator();
-        const waveformData = waveformGenerator.generate(deck.audioBuffer);
+        let waveformData = null;
+        try {
+            const waveformGenerator = new WaveformGenerator();
+            waveformData = waveformGenerator.generate(analysisBuffer);
+        } catch (err) {
+            console.warn(`Deck ${deckId}: waveform generation failed`, err);
+        }
+
+        // The song is ready: only the waveform and the beat grid survive the analysis
+        deck.hasTrack = true;
 
         // Emit events
         this.events.emit('trackLoaded', deckId, {

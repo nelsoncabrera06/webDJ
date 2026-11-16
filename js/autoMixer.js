@@ -71,7 +71,7 @@ class AutoMixer {
             const otherDeck = this.audioEngine.decks[otherDeckId];
 
             // Other deck must have a track loaded and be stopped/paused
-            if (otherDeck.audioBuffer && (!otherDeck.isPlaying || otherDeck.isPaused)) {
+            if (otherDeck.hasTrack && (!otherDeck.isPlaying || otherDeck.isPaused)) {
                 this.startMix(deckId, otherDeckId);
             }
         }

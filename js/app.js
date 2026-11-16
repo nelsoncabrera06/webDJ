@@ -286,9 +286,9 @@ class DJMixApp {
         }
 
         // If both paused or stopped, play the one with a track loaded
-        if (deckA.audioBuffer) {
+        if (deckA.hasTrack) {
             this.audioEngine.play('A');
-        } else if (deckB.audioBuffer) {
+        } else if (deckB.hasTrack) {
             this.audioEngine.play('B');
         }
     }
